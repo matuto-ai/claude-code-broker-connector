@@ -9,7 +9,7 @@ is needed. The plugin uses the existing Claude login and normal permissions.
 ## Install from GitHub
 
 After this PR merges, install from `main` (before merge, use
-`#chore/matuto-ai-npm-scope` instead):
+`#chore/release-0.2.1` instead):
 
 ```sh
 claude plugin marketplace add matuto-ai/claude-code-broker-connector#main
@@ -75,7 +75,7 @@ A source checkout can already be packed and installed locally:
 
 ```sh
 npm pack
-npm install --prefix /your/private/tools ./matuto-ai-claude-code-broker-connector-0.2.0.tgz
+npm install --prefix /your/private/tools ./matuto-ai-claude-code-broker-connector-0.2.1.tgz
 /your/private/tools/node_modules/.bin/psst-claude plugin-path
 ```
 
