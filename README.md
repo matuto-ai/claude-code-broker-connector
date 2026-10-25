@@ -8,11 +8,10 @@ is needed. The plugin uses the existing Claude login and normal permissions.
 
 ## Install from GitHub
 
-After this PR merges, install from `main` (before merge, use
-`#chore/release-0.2.1` instead):
+After release `v0.3.0` is published, install the pinned release:
 
 ```sh
-claude plugin marketplace add matuto-ai/claude-code-broker-connector#main
+claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.3.0
 claude plugin install psst@psst-connectors
 ```
 
@@ -21,21 +20,19 @@ is a private/custom marketplace, not a listing in Anthropic's official catalog.
 Review the plugin prompt before installing. Requires **Linux, Node 24.19+ within
 24.x on PATH**, and Claude Code with exec-form hooks (audited with 2.1.309).
 
-Configure the path to this client's private enrollment bundle before starting
-Claude normally:
+After installation, open Claude normally and connect in its native session:
 
-```sh
-export PSST_CONFIG_FILE=/absolute/private/claude-code/connection.json
-claude
+```text
+/psst:connect /absolute/private/claude-code/connection.json
 ```
 
-Install/load the plugin before a genuine native SessionStart. Broker credentials
-are optional at startup: the MCP remains available while disconnected. Then run
-`/psst:connect /absolute/private/connection.json` in the same session. No new
-agent/container or environment-variable setup is required. Legacy configured
-sessions retain automatic transport startup. `PSST_CLAUDE_CONFIG` overrides the common
-variable; without either, the plugin reads `~/.config/psst/claude.json`.
-[Custom configuration and troubleshooting](docs/integration.md).
+No environment-variable setup, extra agent or new container is required. The
+plugin must be loaded before a genuine native SessionStart; its MCP tools remain
+available while disconnected. Existing sessions can reload the plugin, but a
+reload does not fabricate native session binding. Existing private bundles work;
+[private pairing files](docs/pairing.md) are optional when the broker supports them.
+Legacy environment/default-file configuration remains supported; see
+[custom configuration and troubleshooting](docs/integration.md).
 
 ## Use
 
@@ -77,25 +74,37 @@ No automatic replay into a different session is performed.
 
 Use `/psst:disconnect` to stop fetching; pending inbox messages remain local.
 An explicit reconnect within the same native lifetime resumes them. Broker
-presence can remain until lease expiry. A different broker/token path requires
-a different native session; credentials are not silently swapped. This change adds bounded native notice support, not new credential enrollment.
+presence can remain until lease expiry. Legacy journal connection paths remain
+pinned; explicit replacement enrollment after disconnect uses a separate
+credential-bound journal and never silently adopts old pending messages.
 
 ## npm alternative
 
-The prepared npm package is `@matuto-ai/claude-code-broker-connector`, with the `psst-claude`
-CLI. Publication is a separate maintainer step; do not assume it is on npm yet.
-A source checkout can already be packed and installed locally:
+After npm publication is verified, install the released package into a private
+local tools directory (reuse your existing prefix when updating):
 
 ```sh
-npm pack
-npm install --prefix /your/private/tools ./matuto-ai-claude-code-broker-connector-0.2.1.tgz
-/your/private/tools/node_modules/.bin/psst-claude plugin-path
+npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.3.0
+"$HOME/.local/share/psst-claude/node_modules/.bin/psst-claude" plugin-path
 ```
 
-Add that printed directory with `claude plugin marketplace add <directory>`,
-then install `psst@psst-connectors` normally. The CLI also offers `config-example`
-and `doctor [absolute-config-path]`; it never writes credentials or changes
-Claude settings by itself. No postinstall scripts are used.
+For a first installation, add that printed directory with
+`claude plugin marketplace add <directory>`, then
+`claude plugin install psst@psst-connectors`. For an existing marketplace backed
+by that directory, refresh it and update the installed plugin:
+
+```sh
+claude plugin marketplace update psst-connectors
+claude plugin update psst@psst-connectors
+```
+
+Use the original installation scope if it was not the default user scope. Do not
+register a duplicate marketplace or replace a shared source without checking it.
+The new plugin version avoids reusing the old 0.2.1 cache. In an existing Claude
+session use `/reload-plugins`; a fresh session supplies SessionStart normally.
+Native permissions and workspace trust still apply. The CLI also offers
+`doctor [absolute-config-path]`; it never writes credentials or changes Claude
+settings by itself. No postinstall scripts are used.
 
 ## Maintainer checks
 
