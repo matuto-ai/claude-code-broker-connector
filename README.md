@@ -8,10 +8,11 @@ is needed. The plugin uses the existing Claude login and normal permissions.
 
 ## Install from GitHub
 
-Until the PR is merged, use its branch explicitly:
+After this PR merges, install from `main` (before merge, use
+`#chore/matuto-ai-npm-scope` instead):
 
 ```sh
-claude plugin marketplace add matuto-ai/claude-code-broker-connector#feat/lan-broker-adapter-foundation
+claude plugin marketplace add matuto-ai/claude-code-broker-connector#main
 claude plugin install psst@psst-connectors
 ```
 
