@@ -25,6 +25,7 @@
     ".claude-plugin/",
     ".mcp.json",
     "hooks/",
+    "monitors/",
     "skills/",
     "docs/",
     "README.md",

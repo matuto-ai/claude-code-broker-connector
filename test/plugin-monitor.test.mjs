@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {spawn} from 'node:child_process';
+import {setTimeout as delay} from 'node:timers/promises';
+import {pluginHook,hostDirectory,readBinding} from '../src/plugin-state.mjs';
+import {processIdentity,writePrivateJson} from '../src/launch-state.mjs';
+test('monitor fixture is session-fenced, body-free, silent on disconnect and exits on SessionEnd (not native certification)',async t=>{
+ const home=mkdtempSync(join(tmpdir(),'psst-monitor-'));t.after(()=>rmSync(home,{recursive:true,force:true}));
+ const config={stateRoot:join(home,'.config','psst','native')},host=processIdentity(process.pid),sessionId='fixture-native-session';
+ pluginHook(config,{hook_event_name:'SessionStart',session_id:sessionId},host);
+ const {directory}=hostDirectory(config,host),binding=readBinding(directory);
+ const publish=(connected,pending_id)=>writePrivateJson(join(directory,'notice.json'),{...binding,connected,pending_id,updated_at:Date.now()});
+ publish(true,'message-one');
+ const child=spawn(process.execPath,['bin/plugin-monitor.mjs'],{env:{...process.env,HOME:home,PSST_CLAUDE_CONFIG:join(home,'absent'),CLAUDE_PID:String(process.pid),CLAUDE_CODE_SESSION_ID:sessionId},stdio:['ignore','pipe','pipe']});
+ t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});let output='';child.stdout.on('data',c=>output+=c);
+ const ended=new Promise(resolve=>child.once('exit',resolve));
+ for(let i=0;i<40&&!output;i++)await delay(25);
+ assert.match(output,/broker_receive/);assert(!output.includes('message-one'));const before=output;
+ publish(false,'message-two');await delay(1100);assert.equal(output,before);
+ publish(true,'message-two');await delay(1100);assert(output.length>before.length);
+ pluginHook(config,{hook_event_name:'SessionEnd',session_id:sessionId},host);assert.equal(await ended,0);
+});

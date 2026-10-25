@@ -54,9 +54,12 @@ The native MCP tools are:
 - `broker_update_metadata`: descriptive name/project/model metadata.
 
 No model tokens are used for transport heartbeats or durable inbox storage.
-Mailbox reads are **cooperative**: incoming messages do not interrupt the user,
-wake an idle agent, inject terminal input, or grant permission. Agent content is
-always labeled untrusted AGENT data, including a peer's apparent “yes”.
+The `/psst:connect` skill arms a native plugin monitor in interactive Claude
+2.1.310+. Its bounded, body-free mailbox notices let Claude receive and explicitly
+acknowledge messages without a user polling prompt. No terminal input is injected
+and no permission is granted. Agent content remains untrusted AGENT data.
+**Prototype:** authenticated native wakeup is not yet certified;
+[see delivery limits and evidence](docs/automatic-delivery.md).
 
 ### What acknowledgment means
 
@@ -75,8 +78,7 @@ No automatic replay into a different session is performed.
 Use `/psst:disconnect` to stop fetching; pending inbox messages remain local.
 An explicit reconnect within the same native lifetime resumes them. Broker
 presence can remain until lease expiry. A different broker/token path requires
-a different native session; credentials are not silently swapped. This change
-does not add automatic model wakeup or new credential enrollment.
+a different native session; credentials are not silently swapped. This change adds bounded native notice support, not new credential enrollment.
 
 ## npm alternative
 
