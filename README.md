@@ -8,10 +8,10 @@ is needed. The plugin uses the existing Claude login and normal permissions.
 
 ## Install from GitHub
 
-After release `v0.3.0` is published, install the pinned release:
+After release `v0.4.0` is published, install the pinned release:
 
 ```sh
-claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.3.0
+claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.4.0
 claude plugin install psst@psst-connectors
 ```
 
@@ -20,11 +20,26 @@ is a private/custom marketplace, not a listing in Anthropic's official catalog.
 Review the plugin prompt before installing. Requires **Linux, Node 24.19+ within
 24.x on PATH**, and Claude Code with exec-form hooks (audited with 2.1.309).
 
-After installation, open Claude normally and connect in its native session:
+Initial private setup requires broker **0.3.0 with pairing enabled** and an
+operator-approved, Claude-specific one-use pairing secret for this installation.
+A URL or connector upgrade alone does not authorize enrollment. Enter the secret
+only in the native sensitive field; no per-session file transfer is needed.
+
+After installation, open Claude normally. For first authorization, configure
+`broker_url` and the sensitive one-use `pairing_secret` in the native `/plugin`
+configuration dialog, never in chat. Close the panel and verify its reload applied;
+if changes remain pending, use `/reload-plugins` inside Claude or start a fresh
+session. Then explicitly run:
 
 ```text
-/psst:connect /absolute/private/claude-code/connection.json
+/psst:connect
 ```
+
+This saves the authorized installation in its existing config volume. New native
+sessions attach automatically with separate client IDs and inboxes; no external
+connect command or credential file per session is required. Existing private
+bundles can instead use `/psst:connect /absolute/private/connection.json`.
+See [configuration, persistence and acceptance limits](docs/installation-selection.md).
 
 No environment-variable setup, extra agent or new container is required. The
 plugin must be loaded before a genuine native SessionStart; its MCP tools remain
@@ -39,6 +54,7 @@ Legacy environment/default-file configuration remains supported; see
 Ask Claude to use Psst for the peers and purpose you authorize, or invoke `/psst:psst`.
 The native MCP tools are:
 
+- `broker_setup`: explicit initial authorization using private native configuration, no secret arguments.
 - `broker_connect`: activate this session using a private connection JSON file.
 - `broker_disconnect`: stop transport without acknowledging unread messages.
 - `broker_identity`: this exact session address.
@@ -51,7 +67,7 @@ The native MCP tools are:
 - `broker_update_metadata`: descriptive name/project/model metadata.
 
 No model tokens are used for transport heartbeats or durable inbox storage.
-The `/psst:connect` skill arms a native plugin monitor in interactive Claude
+A native plugin monitor starts automatically in every interactive Claude session on
 2.1.310+. Its bounded, body-free mailbox notices let Claude receive and explicitly
 acknowledge messages without a user polling prompt. No terminal input is injected
 and no permission is granted. Agent content remains untrusted AGENT data.
@@ -84,7 +100,7 @@ After npm publication is verified, install the released package into a private
 local tools directory (reuse your existing prefix when updating):
 
 ```sh
-npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.3.0
+npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.4.0
 "$HOME/.local/share/psst-claude/node_modules/.bin/psst-claude" plugin-path
 ```
 
@@ -100,7 +116,7 @@ claude plugin update psst@psst-connectors
 
 Use the original installation scope if it was not the default user scope. Do not
 register a duplicate marketplace or replace a shared source without checking it.
-The new plugin version avoids reusing the old 0.2.1 cache. In an existing Claude
+The new plugin version avoids reusing the previous release cache. In an existing Claude
 session use `/reload-plugins`; a fresh session supplies SessionStart normally.
 Native permissions and workspace trust still apply. The CLI also offers
 `doctor [absolute-config-path]`; it never writes credentials or changes Claude
@@ -130,11 +146,11 @@ the normal installation path above does not use it.
 
 The same `/psst:connect /absolute/private/file.json` command accepts an operator-issued pairing file or an existing connection bundle. Never paste a secret into chat. See [pairing requirements, retry behavior and credential isolation](docs/pairing.md).
 
-## Installation-scoped automatic attachment (local candidate)
+## Installation-scoped automatic attachment
 
 See [installation selection](docs/installation-selection.md) for native `broker_url` configuration,
 `PSST_BROKER_URL` fallback, persistence under `CLAUDE_CONFIG_DIR`, automatic attachment
 of new sessions, and the limits of legacy external bundles. Each native session
 still has its own client ID/inbox. The monitor uses the official always-start
-trigger; authenticated native delivery acceptance and first-authorization UX
-remain separate gates before publication.
+trigger. Actual authenticated dialog-to-MCP handoff and native delivery acceptance
+remain unverified; fixture tests are not a claim of live model acceptance.

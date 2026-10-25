@@ -1,7 +1,7 @@
 # One installation, separate native sessions
 
-This is a local UX candidate, not a published release or a claim of authenticated
-native monitor acceptance.
+This describes the 0.4.0 source. Version preparation is not publication and does
+not claim authenticated native monitor acceptance.
 
 ## Configure once, inside Claude
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.0
+
+- Configure broker URL and a sensitive one-use pairing secret inside Claude;
+  explicit initial setup accepts no secret tool arguments and never runs at startup.
+- Remember the authorized installation under the existing CLAUDE_CONFIG_DIR
+  volume. New sessions auto-attach with separate native IDs and inboxes; disconnect
+  affects only its session. Legacy private bundles remain supported.
+- Start the bounded body-free monitor with each interactive session, preserving
+  native binding, receipt acknowledgment, cancellation and reconnect protections.
+- Add atomic installation selection, concurrent writer fencing, fail-closed
+  configuration validation and explicit recovery without overwriting corrupt state.
+- Document initial native reload, secure-storage limitations, and the absence of
+  automatic cleanup for the native stored one-use secret.
+
+Validation: 35 unit tests, 16 integration cases, repeated 30-process selection,
+syntax checks and official Claude 2.1.310 manifest validation passed. Authenticated
+native configuration-dialog-to-MCP handoff and actual monitor/model acceptance
+remain unverified. No broker deployment or real credential migration is included.
+
+
 ## 0.3.1
 
 - Explicit connect/disconnect now supersedes deferred startup auto-resume, fixing
