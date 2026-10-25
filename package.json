@@ -1,14 +1,41 @@
 {
-  "name": "claude-code-review-pair",
-  "version": "0.1.0",
-  "private": true,
+  "name": "claude-code-broker-connector",
+  "version": "0.2.0",
+  "private": false,
   "type": "module",
   "engines": {
-    "node": "24.19.0"
+    "node": ">=24.19.0 <25"
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "find src bin test -name \"*.mjs\" -not -path \"*/node_modules/*\" -print0 | xargs -0 -r -n1 node --check"
+    "check": "find src bin test integration scripts vendor -name \"*.mjs\" -print0 | xargs -0 -r -n1 node --check",
+    "test:integration": "node --test integration/*.test.mjs",
+    "prepack": "npm run check && npm test",
+    "audit:claude": "node scripts/audit-native.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "description": "Native Claude Code plugin for Psst agent messaging",
+  "bin": {
+    "psst-claude": "bin/cli.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "vendor/",
+    ".claude-plugin/",
+    ".mcp.json",
+    "hooks/",
+    "skills/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "scripts/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matuto-ai/claude-code-broker-connector.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

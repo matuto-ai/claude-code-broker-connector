@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { PassThrough, Writable } from 'node:stream';
 import { setImmediate as turn } from 'node:timers/promises';
 import { createClaudeSessionBridge, CAPABILITY } from '../src/session-bridge.mjs';
-import { serveStdio } from '../../ai-agent-msg-broker/reference/mcp-stdio.mjs';
-import { createTools } from '../../ai-agent-msg-broker/reference/tools.mjs';
+import { serveStdio } from '../vendor/psst/reference/mcp-stdio.mjs';
+import { createTools } from '../vendor/psst/reference/tools.mjs';
 import { randomUUID } from 'node:crypto';
 
 function fixture({ delayedStart = false } = {}) {

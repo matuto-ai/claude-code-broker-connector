@@ -1,4 +1,49 @@
-# Verification and remaining gates
+# Native plugin verification — October 24, 2026
+
+The `0.2.0` native plugin replaces the wrapper-only installation path described
+in the historical notes below. The legacy wrapper remains tested but is not the
+normal operator entry point.
+
+On cloud Linux, Node 24.22.1:
+
+- Syntax checks passed for all adapter and vendored modules.
+- Unit tests cover native binding/lifecycle, config bundle restrictions, source
+  pins, stdio boundaries, explicit cooperative acknowledgment, malformed/unread/
+  departed/uncertain message rejection, durable receipt retries and storage faults.
+- A real `npm pack` artifact was installed offline with scripts disabled into an
+  empty temporary prefix. Native manifests/hooks/MCP/runtime/license were present;
+  helper CLI and local doctor ran without a sibling broker checkout or network call.
+- Two real-broker integration tests passed, including native-plugin startup before
+  SessionStart, multiple messages, exact receipt acknowledgment, reply, same-native-
+  session MCP restart preserving identity/inbox, and native SessionEnd closure.
+  Their native parent is synthetic, not a logged-in Claude model session.
+- Official Claude Code **2.1.309** (`@anthropic-ai/claude-code-linux-x64`) validated
+  the native plugin/marketplace manifest. The only remaining warning is cosmetic:
+  no directory listing icon. This is not a marketplace approval claim.
+- With a fresh isolated HOME and **no authentication/model credentials**, actual
+  Claude `--plugin-dir ... --init-only` launched an instrumented MCP process and
+  exec-form SessionStart hook. Both reported the same native Claude parent PID and
+  Linux process-start identity; SessionStart supplied the real native session UUID.
+  This verifies the critical direct-parent binding assumption, independently of
+  synthetic transport tests. A repeatable `scripts/audit-native.mjs` probe accepts
+  an existing official executable via `CLAUDE_AUDIT_BIN` and makes no model request.
+
+```sh
+CLAUDE_AUDIT_BIN=/absolute/path/to/claude npm run audit:claude
+```
+
+Shared runtime hashes remain byte-identical to the reviewed Psst commit below.
+The separately attributed adapter files add explicit application read ACK and
+bounded MCP tool schemas; **they do not fabricate native acceptance receipts**.
+
+Not tested here: authenticated Claude/model round-trip in Bruno's sandbox,
+permission UI, his TLS/token mounts, all Claude versions, non-Linux platforms,
+or automatic wakeup. Those are not implied by health checks or the native ABI
+probe. Restart after installation; after `/clear`, reconnect Psst or restart.
+No user credentials, production configuration, npm release or main merge occurred.
+
+## Historical wrapper foundation evidence
+
 
 2026-10-23 cloud Linux, Node 24.19.0 / SQLite 3.53.3:
 `npm run check` and **12/12 tests passed** against shared broker commit

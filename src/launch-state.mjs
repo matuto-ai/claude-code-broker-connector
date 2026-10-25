@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, lstatSync, mkdirSync, renameSync, realpathSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, lstatSync, mkdirSync, renameSync, realpathSync, existsSync, openSync, fstatSync, closeSync, constants } from 'node:fs';
 import { join, isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
@@ -11,9 +11,15 @@ export function privateDirectory(directory) {
   return directory;
 }
 export function readPrivateJson(path) {
-  const stat = lstatSync(path);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.mode & 0o077 || stat.size > 16384 || process.getuid && stat.uid !== process.getuid()) throw new Error('private_file_required');
-  return JSON.parse(readFileSync(path, 'utf8'));
+  let fd;
+  try {
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || stat.mode & 0o077 || stat.size > 16384 || process.getuid && stat.uid !== process.getuid()) throw new Error('private_file_required');
+    const value = readFileSync(fd, 'utf8');
+    if (Buffer.byteLength(value) > 16384) throw new Error('private_file_required');
+    return JSON.parse(value);
+  } finally { if (fd !== undefined) closeSync(fd); }
 }
 export function writePrivateJson(path, value) {
   const temporary = `${path}.${randomUUID()}.tmp`;

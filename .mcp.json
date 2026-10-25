@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "psst": { "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/bin/plugin-mcp.mjs"] }
+  }
+}

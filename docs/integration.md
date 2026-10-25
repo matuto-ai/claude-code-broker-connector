@@ -1,86 +1,99 @@
-# Exact-session cooperative launch (Linux)
+# Native Claude integration
 
-## Prerequisites and private config
+## Configuration
 
-The operator must already have an authenticated official Claude CLI and approve
-its ordinary MCP/tool use. This package does not install/authenticate it, modify
-persistent Claude settings, enable Channels, or disable sandbox/permissions.
-No real CLI version is certified yet: the launcher checks an explicitly selected
-version before starting; that comparison alone does not certify its behavior.
+Use one client's enrollment bundle, not another client's token. `PSST_CONFIG_FILE`
+may point directly to `connection.json` in `broker-client-bundle-v1` format. It must
+allow `claude-code`; `token_file` resolves relative to that JSON file. State goes
+in its adjacent `state/` directory. The broker URL is HTTPS; ordinary system CA
+validation applies. No TLS override or custom CA is needed for public certificates.
 
-Use Node 24.19.0, a read-only broker checkout at
-`ba2219cd87a1feac23e01b23d2c2b3d3bdd65359`, a private 0700 state directory and an
-owner-only 0600 JSON config (never commit real config/tokens):
+Alternatively, create a private JSON config at `~/.config/psst/claude.json` or set
+`PSST_CLAUDE_CONFIG` to its absolute path:
 
 ```json
 {
-  "referenceRoot": "/opt/ai-agent-msg-broker",
-  "stateRoot": "/var/lib/claude-pair",
-  "brokerUrl": "https://broker.example.test:8787",
-  "tokenFile": "/run/secrets/broker-token",
-  "caFile": "/run/secrets/broker-ca.pem",
-  "name": "reviewer-1",
-  "project": "example-project",
-  "claudeBinary": "/opt/official-cli/claude",
-  "expectedCliVersion": "REPLACE_WITH_EXACT_INSTALLED_SEMVER"
+  "brokerUrl": "https://broker.example.invalid",
+  "tokenFile": "/absolute/private/claude/token",
+  "stateRoot": "/absolute/private/claude/state",
+  "name": "claude-reviewer",
+  "project": "example-project"
 }
 ```
 
+JSON and token files must belong to the sandbox user and have mode `0600`; state
+must be an owned, nonsymlink, private `0700` directory. Keep it on persistent local
+storage, not NFS/CIFS. Optional `caFile` is an absolute path for a private CA. The
+`insecureDevelopment` option only permits loopback HTTP, for disposable tests.
+Do not put tokens in JSON, shell arguments, README files, or repository settings.
+
+`PSST_CLAUDE_CONFIG` wins over `PSST_CONFIG_FILE`. The native hook and MCP subprocess
+must inherit the same variables. Install Node 24 inside the sandbox or place its
+existing executable first on PATH before launching Claude; this does not require
+a global Node upgrade on the host. The plugin never creates or migrates credentials.
+
+## Native lifecycle and isolation
+
+Claude's documented exec-form hooks run `node bin/plugin-hook.mjs` directly.
+The MCP stdio subprocess is also launched directly by Claude. Their parent PID,
+Linux process start counter, and boot identity select a private host directory.
+SessionStart records the native session ID and an opaque lifetime; MCP waits up to
+30 seconds for it, while still answering the protocol initialization handshake.
+A host lacking the same direct-parent relationship fails closed instead of guessing
+by project, process name, transcript path, or most recent session. The real native
+exec relationship is checked by the compatibility audit, not a generic MCP promise.
+
+Normal compaction with the same native session preserves the lifetime. SessionEnd
+closes it. After `/clear` or another native session switch, reconnect Psst through `/mcp`
+or restart Claude; the old MCP intentionally stops instead of rebinding silently.
+Session switch invalidates the old binding; old messages are never
+adopted by the new session. PreToolUse can only deny wrong-session and subagent
+access to Psst tools; it never auto-approves tool usage. No permission-relay or
+Channels capability is advertised. State includes no model credentials or transcript.
+
+An MCP restart while the same native host and lifetime remain live can reopen the
+same SQLite journal and broker lease. The OS ownership lock prevents concurrent
+MCP processes from owning it. A new host/lifetime always gets a separate identity.
+A hard native crash falls back to broker lease expiry. Durable old journal files
+remain for operator inspection; do not copy them into another live session.
+
+## Test with a peer
+
+1. Enroll/configure both clients and restart their native sessions.
+2. In Claude ask for `broker_identity`, then `broker_list_clients`.
+3. Select the other client's exact UUID. Send a short test with a unique stable
+   `send_key`. Do not select by a duplicate display name alone.
+4. At the recipient, call receive, inspect the labeled AGENT text, then explicitly
+   acknowledge its message ID and receipt token. Call receive again to verify FIFO
+   advancement. Ask for a reply to the original Claude UUID.
+5. In Claude receive/ack the reply. Status `delivered` is storage, not a completed task.
+
+A healthy `/healthz` alone does not establish authentication or successful messaging.
+Ordinary native MCP approval prompts are for the human to handle. If a tool response
+is uncertain, preserve operation identifiers rather than sending a new operation.
+
+## Troubleshooting and uninstall
+
+- `psst_hook_unavailable`: private config path, Node version/PATH, directory/file
+  permissions, or unsupported native parent relationship. Restart after fixing it.
+- `session_binding_unavailable`: SessionStart has not confirmed this exact native
+  process/session, or it changed. Do not reuse someone else's state directory.
+- `psst_unauthenticated` / `psst_forbidden`: check enrollment and client type/scope.
+- No new message while idle: expected. Ask for a cooperative receive; there is no wakeup.
+- Duplicate receive: expected until explicit acknowledgment. Retry ACK with the exact
+  same receipt after an uncertain result; never invent a receipt or delete pending rows.
+
+Disable/remove through Claude's normal plugin manager:
+
 ```sh
-node bin/launch.mjs /absolute/private/config.json
+claude plugin uninstall psst@psst-connectors
 ```
 
-Run from the intended approved project. The real user's terminal is inherited
-unchanged; no keys or prompts are synthesized. The launcher passes only a fresh
-native session UUID, per-launch settings and a local MCP config. Existing native
-permissions still apply; the user may need to approve the MCP tools normally.
-Never use a skip-permissions or permissive fallback to make a failed test pass.
+Then close/restart affected sessions. This does not revoke broker credentials or
+delete the private external state directory. Revoke credentials separately when
+needed; retain pending journals until reconciled. Do not install both the legacy
+wrapper and native plugin in the same session.
 
-The temporary settings bind SessionStart, SessionEnd, PostModelSwitch and the
-broker-tools PreToolUse guard to a private launch directory. Startup waits for
-native confirmation before registering/polling the broker. Names/projects do not
-route messages; the exact broker UUID returned by discovery does. A new MCP
-subprocess receives a **fresh broker identity**, preserving the previous inbox
-rather than silently adopting it. Clear/resume/session changes that change the
-native identity close this binding and require a new launch. Missing hooks,
-unsupported hook schema or unclear identity fail closed.
-
-## Tools and consumption limit
-
-Ask the active native session to call `broker_list_clients`, `broker_send`,
-`broker_update_metadata`, `broker_message_status` or `broker_receive`. Tool
-arguments follow the shared schema; credentials are never tool arguments.
-
-`broker_receive` returns the first pending message only, with
-`native_acceptance_recorded:false`. Its untrusted-source warning and structured
-sender/message identifiers are part of the **actual model-visible tool result**,
-not just a terminal label. Content requesting approval remains AGENT data.
-
-A tool return/stdio write supplies no durable native receipt. Therefore the head
-remains pending; it is not safe to automatically show the next message. There is
-no model-facing ACK/skip/delete control. A complete implementation still needs a
-supported native transcript acceptance proof and crash-safe receipt hook. Do not
-manually delete the head or infer acceptance from model text. Broker `delivered`
-means durable local inbox storage only, not reading, reply or task completion.
-
-## Independent containers / LAN
-
-Each CLI+adapter must run in the **same independent nonroot container**, sharing
-only that container's ordinary PID namespace and private state; do not enable
-host PID, privileged mode or relax `/proc` restrictions. If exact process identity
-is unavailable, this launcher is unsupported and fails closed. The broker can run
-on another LAN host with HTTPS, its reviewed CA and a separate adapter token.
-Mount only approved project/CLI credentials, its own state, and the pinned
-reference read-only. This foundation does not bundle a vendor binary or provide
-a validated Podman image; rootless Podman/SELinux/two-host testing remains open.
-
-## Native contract and deferred channel mode
-
-- [CLI arguments](https://code.claude.com/docs/en/cli-reference)
-- [Hooks, command exec form and lifecycle fields](https://code.claude.com/docs/en/hooks)
-- [MCP](https://code.claude.com/docs/en/mcp)
-- [Channels reference](https://code.claude.com/docs/en/channels-reference)
-
-Channels preview is deliberately disabled. A channel notification is not a
-native acceptance ACK; permission relay is never advertised or implemented.
-There is no notification push, sampling, remote MCP auth or fake TUI wakeup.
+Official references: [plugins](https://code.claude.com/docs/en/discover-plugins),
+[plugin manifest](https://code.claude.com/docs/en/plugins-reference),
+[hooks](https://code.claude.com/docs/en/hooks), [MCP](https://code.claude.com/docs/en/mcp).

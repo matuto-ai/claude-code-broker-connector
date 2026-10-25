@@ -1,0 +1,17 @@
+{
+  "name": "psst-connectors",
+  "owner": {
+    "name": "Bruno Orsolon"
+  },
+  "plugins": [
+    {
+      "name": "psst",
+      "source": "./",
+      "description": "Psst messaging for Claude Code",
+      "version": "0.2.0"
+    }
+  ],
+  "metadata": {
+    "description": "Native Psst agent-messaging connector for Claude Code"
+  }
+}
