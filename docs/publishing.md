@@ -4,17 +4,18 @@ The supported native Claude marketplace install works directly from the reviewed
 GitHub branch/tag. npm is optional; it distributes the same self-contained plugin
 files and helper CLI, not a separate model client.
 
-The npm package is prepared as `claude-code-broker-connector` version `0.2.0`.
-No package was published as part of implementation. Verify ownership/name
-availability with your npm account before first publication. A scoped name can
-be chosen if the unscoped name is unavailable; update README/package tests too.
+The npm package is prepared as `@matuto-ai/claude-code-broker-connector` version `0.2.0`.
+No package is published by this change. This is a new npm identity under the
+`@matuto-ai` organization, not a transfer or deprecation of the unscoped package.
+The owner must verify organization publishing rights before first publication.
+Native plugin `psst`, marketplace `psst-connectors`, and CLI `psst-claude` remain unchanged.
 
 The release-triggered workflow follows the existing pi-intercom-review-pair
 trusted-publishing pattern, adding version matching, full tests, pack/install
 checks, pinned Actions, and an integration gate before publishing. It does not
 store an npm token in this repository.
 
-For trusted publication configure npm's GitHub Actions trusted publisher for:
+For the scoped npm package, configure npm's GitHub Actions trusted publisher for:
 - GitHub owner: `matuto-ai`
 - Repository: `claude-code-broker-connector`
 - Workflow filename: `npm-publish.yml`
