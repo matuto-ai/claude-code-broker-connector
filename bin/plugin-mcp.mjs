@@ -8,7 +8,7 @@ import { readPluginConfig, nativeStateConfig, hostDirectory, readBinding, verify
 
 let server,runtime,inbox,timer,live=true,expected,directory,host,tools,connected=false,connecting=false,disabled=false;
 let legacyConfig=null,connectedConfig=null;
-const failure=code=>({error:{code,retryable:true,effect:'not_applied'}});
+const failure=(code,effect='not_applied')=>({error:{code,retryable:true,effect}});
 const bound=()=>live&&expected&&verifyBinding(directory,expected);
 const active=()=>connected&&bound();
 async function stop(closeSession){connected=false;await runtime?.stop({closeSession});inbox?.close();runtime=null;inbox=null;tools=null;}
@@ -46,7 +46,7 @@ try {
     broker_identity:async()=>({client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'cooperative_pull',automatic_wakeup:false,native_acceptance_recorded:false})};
    await runtime.start({name:config.name,project:config.project??null,model:bindingModel(expected)});
    if(!bound())throw Error('session_changed');connected=true;connectedConfig=config;disabled=false;writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:false,config});return tools.broker_identity();
-  }catch{await stop(false);return failure('connection_failed');}finally{connecting=false;}
+  }catch{await stop(false);return failure('connection_failed','unknown');}finally{connecting=false;}
  }
  const names=['broker_list_clients','broker_send','broker_update_metadata','broker_message_status','broker_receive','broker_acknowledge','broker_identity'];
  const guarded=Object.fromEntries(names.map(name=>[name,async args=>{
