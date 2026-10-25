@@ -4,10 +4,10 @@ The supported native Claude marketplace install works directly from the reviewed
 GitHub branch/tag. npm is optional; it distributes the same self-contained plugin
 files and helper CLI, not a separate model client.
 
-The npm package is prepared as `@matuto-ai/claude-code-broker-connector` version `0.2.1`.
-No package is published by this PR. Version `0.2.0` is already public under the
-`@matuto-ai` organization; this patch prepares the next GitHub release for the
-owner to publish through the configured trusted publisher.
+The npm package is prepared as `@matuto-ai/claude-code-broker-connector` version `0.3.0`.
+The version-bump PR itself does not publish. The separately authorized GitHub
+release triggers the configured trusted publisher; verify its result before
+announcing availability.
 Native plugin `psst`, marketplace `psst-connectors`, and CLI `psst-claude` remain unchanged.
 
 The release-triggered workflow follows the existing pi-intercom-review-pair
@@ -26,7 +26,7 @@ configured, complete that one-time bootstrap in your authenticated npm environme
 Do not paste a token into chat or into a committed workflow. The workflow cannot
 magically create publisher permissions.
 
-After reviewing and merging the PR, create release `v0.2.1` from the reviewed
+After reviewing and merging the PR, create release `v0.3.0` from the reviewed
 commit. The tag must match package.json. Tests run first, then npm publication
 uses short-lived OIDC and provenance. Verify the Actions run and npm package
 version before giving users npm install instructions. Native GitHub installation
