@@ -23,3 +23,16 @@ test('monitor fixture is session-fenced, body-free, silent on disconnect and exi
  publish(true,'message-two');await delay(1100);assert(output.length>before.length);
  pluginHook(config,{hook_event_name:'SessionEnd',session_id:sessionId},host);assert.equal(await ended,0);
 });
+
+test('always-start monitor waits silently for delayed exact native binding, never synthesizes it',{timeout:15000},async t=>{
+ const home=mkdtempSync(join(tmpdir(),'psst-monitor-start-'));t.after(()=>rmSync(home,{recursive:true,force:true}));
+ const config={stateRoot:join(home,'.config','psst','native')},host=processIdentity(process.pid),sessionId='delayed-native-session';
+ const child=spawn(process.execPath,['bin/plugin-monitor.mjs'],{env:{...process.env,HOME:home,PSST_CLAUDE_CONFIG:join(home,'absent'),CLAUDE_PID:String(process.pid),CLAUDE_CODE_SESSION_ID:sessionId},stdio:['ignore','pipe','pipe']});
+ t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});let output='',errors='';child.stdout.on('data',x=>output+=x);child.stderr.on('data',x=>errors+=x);const ended=new Promise(r=>child.once('exit',r));
+ await delay(300);assert.equal(output,'');assert.equal(errors,'');assert.equal(child.exitCode,null);
+ pluginHook(config,{hook_event_name:'SessionStart',session_id:sessionId},host);const {directory}=hostDirectory(config,host),binding=readBinding(directory);
+ writePrivateJson(join(directory,'notice.json'),{...binding,connected:false,pending_id:'private-item',updated_at:Date.now()});await delay(1100);assert.equal(output,'');
+ writePrivateJson(join(directory,'notice.json'),{...binding,connected:true,pending_id:'private-item',updated_at:Date.now()});for(let i=0;i<60&&!output;i++)await delay(25);
+ assert.match(output,/broker_receive/);assert(!output.includes('private-item'));assert.equal(errors,'');
+ pluginHook(config,{hook_event_name:'SessionEnd',session_id:sessionId},host);assert.equal(await ended,0);
+});
