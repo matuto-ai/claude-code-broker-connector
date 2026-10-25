@@ -1,6 +1,6 @@
 {
   "name": "psst",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Session-bound Psst agent messaging with explicit receive and acknowledgment. No permission relay or unsolicited prompts.",
   "author": { "name": "Bruno Orsolon" },
   "repository": "https://github.com/matuto-ai/claude-code-broker-connector",

@@ -1,4 +1,5 @@
 // Adapted from the pinned Psst MCP transport. Extension: cooperative receipt and identity tools.
+import packageInfo from '../package.json' with { type: 'json' };
 import { StringDecoder } from 'node:string_decoder';
 import { canonical } from '../vendor/psst/src/protocol.mjs';
 import { invokeTool } from '../vendor/psst/reference/tools.mjs';
@@ -92,7 +93,7 @@ export function serveStdio({ input = process.stdin, output = process.stdout, too
       }
       phase = 'initialized';
       send({ jsonrpc: '2.0', id, result: { protocolVersion: MCP_VERSION, capabilities: { tools: {} },
-        serverInfo: { name: 'claude-code-broker-connector', version: '0.1.0' },
+        serverInfo: { name: 'claude-code-broker-connector', version: packageInfo.version },
         instructions: `${PROVENANCE_WARNING} broker_receive is cooperative pull; after reading call broker_acknowledge with the exact message_id and receipt_token. This records application-level reading, not action success. No permission relay, channels, sampling, or automatic input injection is provided.` } });
       return;
     }

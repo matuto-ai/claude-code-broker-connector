@@ -23,5 +23,8 @@ test('packed native plugin installs without lifecycle scripts or sibling checkou
  const config=join(temp,'config.json');writeFileSync(config,JSON.stringify({brokerUrl:'https://broker.example.invalid',stateRoot:join(temp,'state'),tokenFile:join(temp,'not-created'),name:'test'}),{mode:0o600});
  const doctor=spawnSync(process.execPath,[join(root,'bin/cli.mjs'),'doctor',config],{encoding:'utf8'});assert.equal(doctor.status,0,doctor.stderr);
  assert.match(doctor.stdout,/No network request/);assert(!existsSync(join(temp,'not-created')));
- const manifest=JSON.parse(readFileSync(join(root,'.claude-plugin/plugin.json')));assert.equal(manifest.name,'psst');
+ const manifest=JSON.parse(readFileSync(join(root,'.claude-plugin/plugin.json')));assert.equal(manifest.name,'psst');assert.equal(manifest.version,sourcePackage.version);
+ const marketplace=JSON.parse(readFileSync(join(root,'.claude-plugin/marketplace.json')));
+ assert.equal(marketplace.name,'psst-connectors');
+ assert.equal(marketplace.plugins.find(plugin=>plugin.name==='psst').version,sourcePackage.version);
 });
