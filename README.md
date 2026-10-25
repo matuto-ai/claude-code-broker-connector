@@ -20,6 +20,11 @@ is a private/custom marketplace, not a listing in Anthropic's official catalog.
 Review the plugin prompt before installing. Requires **Linux, Node 24.19+ within
 24.x on PATH**, and Claude Code with exec-form hooks (audited with 2.1.309).
 
+Initial private setup requires broker **0.3.0 with pairing enabled** and an
+operator-approved, Claude-specific one-use pairing secret for this installation.
+A URL or connector upgrade alone does not authorize enrollment. Enter the secret
+only in the native sensitive field; no per-session file transfer is needed.
+
 After installation, open Claude normally. For first authorization, configure
 `broker_url` and the sensitive one-use `pairing_secret` in the native `/plugin`
 configuration dialog, never in chat. Close the panel and verify its reload applied;
