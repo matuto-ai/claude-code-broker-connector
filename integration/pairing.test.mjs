@@ -1,7 +1,7 @@
 // Real TLS broker + synthetic enrollment handler/native parent; not vendor or production issuance certification.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,rmSync,writeFileSync,readFileSync,readdirSync,unlinkSync} from 'node:fs';
+import {mkdtempSync,rmSync,writeFileSync,readFileSync,readdirSync,unlinkSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawn,spawnSync} from 'node:child_process';
@@ -13,8 +13,12 @@ import {Inbox,newSessionIdentity} from '../vendor/psst/reference/inbox.mjs';
 import {BrokerClient} from '../vendor/psst/reference/client.mjs';
 import {pluginHook} from '../src/plugin-state.mjs';
 import {processIdentity} from '../src/launch-state.mjs';
-for(const scenario of ['normal','disconnect','eof','sessionend','registration-disconnect','resume-marker','resume-receipt'])test(`private pairing TLS fixture: ${scenario}`,  {timeout:30000},async t=>{
+for(const scenario of ['normal','auto-resume-race','disconnect','eof','sessionend','registration-disconnect','resume-marker','resume-receipt'])test(`private pairing TLS fixture: ${scenario}`,  {timeout:30000},async t=>{
  const root=mkdtempSync(join(tmpdir(),'claude-pairing-tls-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+ const resumeGate=join(root,'resume-gate'),resumeTick=join(root,'resume-tick'),preload=join(root,'clock.mjs');
+ if(scenario==='auto-resume-race')writeFileSync(preload,`import {existsSync,writeFileSync} from 'node:fs';
+ const interval=globalThis.setInterval;
+ globalThis.setInterval=(fn,ms,...args)=>ms===250?interval(()=>{if(existsSync(${JSON.stringify(resumeGate)})){fn(...args);writeFileSync(${JSON.stringify(resumeTick)},'tick');}},10):interval(fn,ms,...args);`);
  const key=join(root,'tls.key'),cert=join(root,'tls.crt');
  const ssl=spawnSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',key,'-out',cert,'-days','1','-subj','/CN=localhost','-addext','subjectAltName=IP:127.0.0.1'],{encoding:'utf8'});assert.equal(ssl.status,0,ssl.stderr);
  const f=fixture(t),app=createBrokerServer({store:f.store,auth:f.auth,host:'127.0.0.1',port:0,tls:{keyFile:key,certFile:cert},pollIntervalMs:10});const address=await app.listen();t.after(()=>app.close());const url=`https://127.0.0.1:${address.port}`;
@@ -22,6 +26,12 @@ for(const scenario of ['normal','disconnect','eof','sessionend','registration-di
  const grants=new Map(),issued=[];const handler=app.server.listeners('request')[0];app.server.removeAllListeners('request');
  app.server.on('request',async(req,res)=>{
   if(req.url!=='/v1/enrollments'){
+   if(scenario==='auto-resume-race'&&req.url==='/v1/sessions'&&req.method==='POST'&&issued.length===2){
+    // Force the deferred startup/resume tick while explicit reconnect is registering.
+    writeFileSync(resumeGate,'ready');
+    for(let i=0;i<500&&!existsSync(resumeTick);i++)await delay(10);
+    assert(existsSync(resumeTick),'startup timer did not reach the controlled interleaving');
+   }
    if(scenario==='registration-disconnect'&&req.url==='/v1/sessions'&&req.method==='POST'&&req.headers.authorization!==`Bearer ${f.a.token}`){startedIssuance();await issuanceGate;}
    return handler(req,res);
   }
@@ -36,7 +46,7 @@ for(const scenario of ['normal','disconnect','eof','sessionend','registration-di
  const sessionId=randomUUID(),binding={stateRoot:join(root,'.config','psst','native')};pluginHook(binding,{hook_event_name:'SessionStart',session_id:sessionId},processIdentity(process.pid));
  let child,ended,call,stdout,stderr;
  async function start(){
- child=spawn(process.execPath,['bin/plugin-mcp.mjs'],{env:{...process.env,HOME:root,PSST_CLAUDE_CONFIG:join(root,'absent'),PSST_CONFIG_FILE:'',NODE_EXTRA_CA_CERTS:cert},stdio:['pipe','pipe','pipe']});t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});ended=new Promise(r=>child.once('exit',r));stdout='';stderr='';let buffer='',id=0;const waiters=new Map();child.stderr.on('data',c=>stderr+=c);child.stdout.on('data',c=>{stdout+=c;buffer+=c;while(buffer.includes('\n')){const n=buffer.indexOf('\n'),r=JSON.parse(buffer.slice(0,n));buffer=buffer.slice(n+1);waiters.get(r.id)?.(r);waiters.delete(r.id);}});
+ child=spawn(process.execPath,[...scenario==='auto-resume-race'?['--import',preload]:[],'bin/plugin-mcp.mjs'],{env:{...process.env,HOME:root,PSST_CLAUDE_CONFIG:join(root,'absent'),PSST_CONFIG_FILE:'',NODE_EXTRA_CA_CERTS:cert},stdio:['pipe','pipe','pipe']});t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});ended=new Promise(r=>child.once('exit',r));stdout='';stderr='';let buffer='',id=0;const waiters=new Map();child.stderr.on('data',c=>stderr+=c);child.stdout.on('data',c=>{stdout+=c;buffer+=c;while(buffer.includes('\n')){const n=buffer.indexOf('\n'),r=JSON.parse(buffer.slice(0,n));buffer=buffer.slice(n+1);waiters.get(r.id)?.(r);waiters.delete(r.id);}});
  const ask=(method,params)=>new Promise(r=>{const next=++id;waiters.set(next,r);child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');});
  await ask('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'fixture',version:'0'}});child.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');
  call=async(name,args={})=>{const r=await ask('tools/call',{name,arguments:args});assert(!r.error,JSON.stringify(r));return JSON.parse(r.result.content[0].text);};

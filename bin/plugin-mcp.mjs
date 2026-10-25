@@ -8,7 +8,7 @@ import { readPrivateJson, writePrivateJson, privateDirectory } from '../src/laun
 import { verifyReference } from '../src/reference-pin.mjs';
 import { readPluginConfig, nativeStateConfig, hostDirectory, readBinding, verifyBinding, bindingModel, journalName, refreshEnrollment } from '../src/plugin-state.mjs';
 
-let server,runtime,inbox,timer,live=true,expected,directory,host,tools,connected=false,connecting=false,disabled=false,generation=0;
+let server,runtime,inbox,timer,live=true,expected,directory,host,tools,connected=false,connecting=false,disabled=false,generation=0,autoAttempted=false;
 let legacyConfig=null,connectedConfig=null,lastNotice=null,lastNoticeAt=0;
 const failure=(code,effect='not_applied')=>({error:{code,retryable:true,effect}});
 const bound=()=>live&&expected&&verifyBinding(directory,expected);
@@ -70,6 +70,8 @@ try {
  }]));
  let pairing=false;
  guarded.broker_connect=async({connection_file})=>{
+  // Explicit user intent supersedes deferred startup resume, including failed attempts.
+  autoAttempted=true;
   if(pairing||connecting)return failure('connection_busy');
   if(!confirm())return failure('session_binding_unavailable');
   try{
@@ -85,10 +87,9 @@ try {
   }catch(error){return failure(error.effect==='unknown'?'enrollment_or_connection_uncertain':'invalid_connection_file',error.effect==='unknown'?'unknown':'not_applied');}
   finally{pairing=false;}
  };
- guarded.broker_disconnect=async()=>{generation++;disabled=true;connected=false;if(expected)writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:true});status();if(connecting)void runtime?.stop({closeSession:false}).catch(()=>{});else await stop(false);return{connected:false,pending_connection_cancelled:connecting||pairing,pending_retained:true,native_acceptance_recorded:false};};
+ guarded.broker_disconnect=async()=>{autoAttempted=true;generation++;disabled=true;connected=false;if(expected)writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:true});status();if(connecting)void runtime?.stop({closeSession:false}).catch(()=>{});else await stop(false);return{connected:false,pending_connection_cancelled:connecting||pairing,pending_retained:true,native_acceptance_recorded:false};};
  server=serveStdio({tools:guarded,onClose:async()=>{const closeSession=!bound();generation++;live=false;await stop(closeSession);},onDiagnostic:()=>{}});
  // Stay available while disconnected. Never retry failed enrollment/auth indefinitely.
- let autoAttempted=false;
  timer=setInterval(()=>{void(async()=>{
   if(expected&&!bound()){live=false;await server.close();return;}
   if(!expected)confirm();

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.1
+
+- Explicit connect/disconnect now supersedes deferred startup auto-resume, fixing
+  an intermittent reconnect failure when the first timer tick read stale disabled
+  activation state during registration of a new credential. Even an invalid
+  explicit connect attempt consumes that one startup intention; it does not
+  silently fall back to a previously saved connection.
+- Legacy startup auto-resume is unchanged when no explicit connection command
+  intervenes. No permission, receipt, enrollment or credential rules are relaxed.
+- Added a deterministic real-TLS regression that gates the startup tick during
+  reconnect; 29 unit tests and 11 integration cases pass.
+
+
 ## 0.3.0
 
 - Native `/psst:connect` and `/psst:disconnect` work inside an existing confirmed
