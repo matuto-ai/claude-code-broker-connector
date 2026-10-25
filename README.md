@@ -68,13 +68,13 @@ No automatic replay into a different session is performed.
 
 ## npm alternative
 
-The prepared npm package is `claude-code-broker-connector`, with the `psst-claude`
+The prepared npm package is `@matuto-ai/claude-code-broker-connector`, with the `psst-claude`
 CLI. Publication is a separate maintainer step; do not assume it is on npm yet.
 A source checkout can already be packed and installed locally:
 
 ```sh
 npm pack
-npm install --prefix /your/private/tools ./claude-code-broker-connector-0.2.0.tgz
+npm install --prefix /your/private/tools ./matuto-ai-claude-code-broker-connector-0.2.0.tgz
 /your/private/tools/node_modules/.bin/psst-claude plugin-path
 ```
 
