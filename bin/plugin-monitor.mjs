@@ -13,7 +13,12 @@ try {
  try{candidates.push(hostDirectory(readPluginConfig(),host).directory);}catch{}
  candidates.push(hostDirectory(nativeStateConfig(),host).directory);
  let expected,directory;
- for(const candidate of candidates){try{const b=readBinding(candidate);if(b.sessionId===sessionId&&b.host.pid===pid&&verifyBinding(candidate,b)){expected=b;directory=candidate;break;}}catch{}}
+ // Native always-start monitors may precede the SessionStart hook. Wait only for
+ // this exact native owner/session; never create a binding or infer another one.
+ for(let attempt=0;attempt<100&&!expected;attempt++){
+  for(const candidate of candidates){try{const b=readBinding(candidate);if(b.sessionId===sessionId&&b.host.pid===pid&&verifyBinding(candidate,b)){expected=b;directory=candidate;break;}}catch{}}
+  if(!expected){const actual=processIdentity(pid);if(actual.start!==host.start||actual.boot!==host.boot)break;await delay(100);}
+ }
  if(!expected)throw Error('native_monitor_binding_missing');
  const budget=noticeBudget();
  while(verifyBinding(directory,expected)){

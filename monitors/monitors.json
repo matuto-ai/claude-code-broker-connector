@@ -1,1 +1,8 @@
-[{"name":"psst-inbox","command":"exec node \"${CLAUDE_PLUGIN_ROOT}/bin/plugin-monitor.mjs\"","description":"Bounded Psst mailbox pending notifications (no message bodies)","when":"on-skill-invoke:connect"}]
+[
+  {
+    "name": "psst-inbox",
+    "command": "exec node \"${CLAUDE_PLUGIN_ROOT}/bin/plugin-monitor.mjs\"",
+    "description": "Bounded Psst mailbox pending notifications (no message bodies)",
+    "when": "always"
+  }
+]

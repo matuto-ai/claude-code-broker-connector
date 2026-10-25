@@ -8,6 +8,8 @@ With this plugin already loaded before SessionStart, run:
 /psst:connect /absolute/private/connection.json
 ```
 
+After a successful first connection, new sessions reuse the selected installation
+without repeating this command; see [installation selection](installation-selection.md).
 The native skill calls `broker_connect`, then identity/list tools. No raw token is
 accepted by the tool, copied into chat, or passed on a shell command line. Existing
 private enrollment bundles and custom connection JSON both work. Secure one-use
@@ -15,13 +17,15 @@ private enrollment bundles and custom connection JSON both work. Secure one-use
 
 SessionStart records the native PID/start/boot/session lifetime independently of
 broker configuration. The MCP server stays available while disconnected. Existing
-0.2.1 configured sessions retain their legacy journal fallback. Connection paths
-are private and session-bound. Legacy journals cannot switch broker/token paths;
+0.2.1 configured sessions retain their legacy journal fallback. The selected installation path is private and shared only within its Claude
+config volume; native addresses and journals remain session-bound. Legacy journals cannot switch broker/token paths;
 explicit replacement enrollment uses a separate credential-bound journal.
 MCP EOF in the same live session preserves its pending journal. A new native
 session never adopts it.
 
-The native monitor is armed by `on-skill-invoke:connect`. It uses native-provided
+The native monitor uses the official `when: "always"` trigger at session start
+and plugin reload. It waits briefly for the exact SessionStart binding if the
+native monitor starts first; it never creates that binding. It uses native-provided
 `CLAUDE_PID` and `CLAUDE_CODE_SESSION_ID`, checks the corresponding live binding,
 and reads only a private status file. It never reads token or message bodies,
 registers another broker client, or writes to the inbox. Only the MCP owns the
@@ -65,7 +69,11 @@ startup, explicit connect, FIFO receive/ACK, MCP restart, disconnect/reconnect w
 pending messages, and SessionEnd. These synthetic host fixtures are not native
 Claude model certification.
 
-Official Claude 2.1.310 validates the monitor fixture. A fresh-HOME, no-auth native
+Official Claude 2.1.310 validates the always-start monitor and broker URL
+userConfig manifest. Local tests cover a delayed SessionStart, silent disconnected
+monitor, 30 simultaneous synthetic native hosts, and a fresh HOME retaining only
+the selected installation volume. This does not prove authenticated native
+monitor launch or model response. A fresh-HOME, no-auth native
 TUI probe stopped before onboarding/workspace trust because api.anthropic.com
 resolution failed (EAI_AGAIN). Actual monitor launch/notification arrival/model
 wakeup therefore remain **unverified** in that probe. The shipped 2.1.310 loader

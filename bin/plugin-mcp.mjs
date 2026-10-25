@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { homedir } from 'node:os';
-import { connectPairingFile } from '../src/enrollment-support.mjs';
+import { installationRoot, readSelection, selectedConfig, saveSelection, configuredBrokerUrl, enforceConfiguredBroker } from '../src/installation-selection.mjs';
+import { connectPairingFile, connectPairingSecret } from '../src/enrollment-support.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeFileSync } from 'node:fs';
@@ -30,7 +30,7 @@ try {
  const root=dirname(dirname(fileURLToPath(import.meta.url)));verifyReference(join(root,'vendor','psst'));
  const [{Inbox,newSessionIdentity},{BrokerClient},{AdapterRuntime},{createTools},{createCooperativeInbox},{serveStdio}]=await Promise.all([
  import('../vendor/psst/reference/inbox.mjs'),import('../vendor/psst/reference/client.mjs'),import('../vendor/psst/reference/runtime.mjs'),import('../vendor/psst/reference/tools.mjs'),import('../src/cooperative-inbox.mjs'),import('../src/cooperative-stdio.mjs')]);
- try{legacyConfig=readPluginConfig();}catch(error){
+ try{legacyConfig=(process.env.PSST_CLAUDE_CONFIG||process.env.PSST_CONFIG_FILE)?readPluginConfig():(selectedConfig()??readPluginConfig());}catch(error){
   if(error.code!=='ENOENT')process.stderr.write('psst_default_config_invalid: staying disconnected; provide a valid private connection file.\n');
  }
  const native=hostDirectory(nativeStateConfig());({directory,host}=native);
@@ -41,7 +41,7 @@ try {
   }return false;
  }
  async function connect(config){
-  config=refreshEnrollment(config);
+  config=enforceConfiguredBroker(refreshEnrollment(config));
   if(connecting)return failure('connection_busy');
   if(!confirm())return failure('session_binding_unavailable');
   if(connected)return connectedConfig.brokerUrl===config.brokerUrl&&connectedConfig.tokenFile===config.tokenFile&&connectedConfig.enrollment?.credentialId===config.enrollment?.credentialId?tools.broker_identity():failure('connection_conflict');
@@ -58,7 +58,7 @@ try {
    const client=new BrokerClient({url:config.brokerUrl,tokenFile:config.tokenFile,caFile:config.caFile,insecureDevelopment:config.insecureDevelopment===true,inbox});
    runtime=new AdapterRuntime({client,inbox,verifySession:bound,isAlive:bound,onDiagnostic:({code})=>process.stderr.write(`psst_${code}\n`)});
    tools={...createTools({client,inbox,observeMetadata:()=>({model:bindingModel(readBinding(directory))})}),...createCooperativeInbox({inbox,isActive:active}),
-    broker_identity:async()=>({credential_id:config.enrollment?.credentialId??null,credential_expires_at:config.enrollment?.expiresAt??null,monitor_attention:monitorAttention(),client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'cooperative_read_with_bounded_monitor_notices',automatic_wakeup:'monitor_requires_interactive_connect_skill',native_acceptance_recorded:false})};
+    broker_identity:async()=>({credential_id:config.enrollment?.credentialId??null,credential_expires_at:config.enrollment?.expiresAt??null,monitor_attention:monitorAttention(),client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'cooperative_read_with_bounded_monitor_notices',automatic_wakeup:'bounded_monitor_when_interactive',native_acceptance_recorded:false})};
    await runtime.start({name:config.name,project:config.project??null,model:bindingModel(expected)});
    if(!bound()||generation!==epoch||disabled)throw Error('session_changed');connected=true;connectedConfig=config;disabled=false;writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:false,config});status();return tools.broker_identity();
   }catch{await stop(!bound());return failure(generation!==epoch?'connection_cancelled':'connection_failed','unknown');}finally{connecting=false;}
@@ -69,24 +69,35 @@ try {
   const result=await tools[name](args);status();return result;
  }]));
  let pairing=false;
- guarded.broker_connect=async({connection_file})=>{
+ const explicitConnect=async({connection_file},nativeSetup=false)=>{
   // Explicit user intent supersedes deferred startup resume, including failed attempts.
   autoAttempted=true;
   if(pairing||connecting)return failure('connection_busy');
   if(!confirm())return failure('session_binding_unavailable');
   try{
-   const input=readPrivateJson(connection_file);
-   if(input?.format==='psst-pairing-v1'){
+   let selectionRevision=null,selectionReadable=true;const selectionEpoch=generation;
+   try{selectionRevision=readSelection()?.revision??null;}catch{selectionReadable=false;}
+   const remember=(result,file)=>{if(!result?.client_id||!active()||selectionEpoch!==generation)return result;let selection;
+    if(!selectionReadable)selection={saved:false,reason:'installation_selection_invalid_or_unreadable'};
+    else try{selection=saveSelection(file,selectionRevision,installationRoot(),connectedConfig);}catch{selection={saved:false,reason:'installation_selection_unavailable'};}
+    return {...result,installation_selection:selection};};
+   const input=nativeSetup?null:readPrivateJson(connection_file);
+   if(nativeSetup||input?.format==='psst-pairing-v1'){
     if(connected)return failure('disconnect_before_pairing');
     pairing=true;const epoch=generation;
-    const result=await connectPairingFile({pairingFile:connection_file,directory:join(homedir(),'.config','psst','enrollment'),clientType:'claude-code'});
+    const options={directory:join(installationRoot(),'enrollment'),clientType:'claude-code',brokerUrl:configuredBrokerUrl()??undefined};
+    if(nativeSetup&&(!options.brokerUrl||!process.env.PSST_PLUGIN_PAIRING_SECRET))return failure('native_setup_configuration_required');
+    const result=nativeSetup?await connectPairingSecret({...options,pairingSecret:process.env.PSST_PLUGIN_PAIRING_SECRET}):await connectPairingFile({...options,pairingFile:connection_file});
     if(epoch!==generation||!bound())return failure('connection_cancelled','unknown');
-    return await connect(readPluginConfig(result.connectionFile));
+    return remember(await connect(readPluginConfig(result.connectionFile)),result.connectionFile);
    }
-   return await connect(readPluginConfig(connection_file));
-  }catch(error){return failure(error.effect==='unknown'?'enrollment_or_connection_uncertain':'invalid_connection_file',error.effect==='unknown'?'unknown':'not_applied');}
+   return remember(await connect(readPluginConfig(connection_file)),connection_file);
+  }catch(error){if(error.message==='configured_broker_mismatch'||error.message==='broker_origin_mismatch')return failure('configured_broker_mismatch');return failure(error.effect==='unknown'?'enrollment_or_connection_uncertain':'invalid_connection_file',error.effect==='unknown'?'unknown':'not_applied');}
   finally{pairing=false;}
  };
+ guarded.broker_connect=args=>explicitConnect(args);
+ // Explicit native action only: residual native secrets are never used at startup.
+ guarded.broker_setup=()=>explicitConnect({},true);
  guarded.broker_disconnect=async()=>{autoAttempted=true;generation++;disabled=true;connected=false;if(expected)writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:true});status();if(connecting)void runtime?.stop({closeSession:false}).catch(()=>{});else await stop(false);return{connected:false,pending_connection_cancelled:connecting||pairing,pending_retained:true,native_acceptance_recorded:false};};
  server=serveStdio({tools:guarded,onClose:async()=>{const closeSession=!bound();generation++;live=false;await stop(closeSession);},onDiagnostic:()=>{}});
  // Stay available while disconnected. Never retry failed enrollment/auth indefinitely.
@@ -96,7 +107,10 @@ try {
   if(expected&&!autoAttempted&&!disabled){
    autoAttempted=true;let config=legacyConfig;
    try{const a=readPrivateJson(join(directory,'activation.json'));if(a.sessionId===expected.sessionId&&a.lifetime===expected.lifetime){disabled=a.disabled===true;config=a.config??null;}}catch{}
-   if(config&&!disabled)await connect(config);
+   if(config&&!disabled){
+    try{const result=await connect(config);if(result?.error)process.stderr.write('psst_autoconnect_unavailable: saved installation could not attach; use explicit connect after correcting configuration.\n');}
+    catch{process.stderr.write('psst_autoconnect_unavailable: saved installation or configured broker is invalid; use explicit connect after correcting configuration.\n');}
+   }
   }
   if(active())status();
  })().catch(()=>{live=false;void server.close();});},250);

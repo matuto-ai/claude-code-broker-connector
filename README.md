@@ -129,3 +129,12 @@ the normal installation path above does not use it.
 ### Private pairing files
 
 The same `/psst:connect /absolute/private/file.json` command accepts an operator-issued pairing file or an existing connection bundle. Never paste a secret into chat. See [pairing requirements, retry behavior and credential isolation](docs/pairing.md).
+
+## Installation-scoped automatic attachment (local candidate)
+
+See [installation selection](docs/installation-selection.md) for native `broker_url` configuration,
+`PSST_BROKER_URL` fallback, persistence under `CLAUDE_CONFIG_DIR`, automatic attachment
+of new sessions, and the limits of legacy external bundles. Each native session
+still has its own client ID/inbox. The monitor uses the official always-start
+trigger; authenticated native delivery acceptance and first-authorization UX
+remain separate gates before publication.

@@ -4,6 +4,7 @@ import {mkdtempSync,rmSync,writeFileSync,readFileSync,unlinkSync} from 'node:fs'
 import {join,dirname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {randomBytes,randomUUID} from 'node:crypto';
+import {saveSelection,selectedConfig} from '../src/installation-selection.mjs';
 import {connectPairingFile} from '../src/enrollment-support.mjs';
 import {readPluginConfig,journalName,refreshEnrollment} from '../src/plugin-state.mjs';
 async function enrolled(t){
@@ -44,4 +45,11 @@ test('saved enrollment cannot downgrade or switch credential on resume',async t=
  unlinkSync(f.receipt);assert.throws(()=>refreshEnrollment(config),/enrollment_identity_changed/);
  const other=await enrolled(t),otherConfig=readPluginConfig(other.connectionFile);
  assert.throws(()=>refreshEnrollment({...config,enrollment:{...config.enrollment,connectionFile:other.connectionFile}}),/enrollment_identity_changed/);
+});
+
+test('selected marked enrollment revalidates same-path token and receipt on every fresh load',async t=>{
+ const f=await enrolled(t);saveSelection(f.connectionFile,null,f.root);assert(selectedConfig(f.root).enrollment);
+ const original=readFileSync(f.token);writeFileSync(f.token,randomBytes(32).toString('base64url'));
+ assert.throws(()=>selectedConfig(f.root),/invalid_enrollment_receipt/);writeFileSync(f.token,original);
+ assert(selectedConfig(f.root).enrollment);unlinkSync(f.receipt);assert.throws(()=>selectedConfig(f.root),/invalid_enrollment_receipt/);
 });

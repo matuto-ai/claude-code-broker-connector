@@ -79,7 +79,7 @@ is uncertain, preserve operation identifiers rather than sending a new operation
 - `session_binding_unavailable`: SessionStart has not confirmed this exact native
   process/session, or it changed. Do not reuse someone else's state directory.
 - `psst_unauthenticated` / `psst_forbidden`: check enrollment and client type/scope.
-- No new message while idle: check connect-skill monitor arming and notice budget (interactive only). Manual receive remains available. See automatic-delivery.md.
+- No new message while idle: check native always-start monitor availability and notice budget (interactive only). Manual receive remains available. See automatic-delivery.md.
 - Duplicate receive: expected until explicit acknowledgment. Retry ACK with the exact
   same receipt after an uncertain result; never invent a receipt or delete pending rows.
 

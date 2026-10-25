@@ -1,7 +1,7 @@
 # Explicit private-file pairing
 
 Requires a broker implementing `/v1/enrollments` (Psst PR #18, reviewed source
-`3e908e79966d886a02d372c103e31dec6e900c1a`; not assumed deployed).
+`4a9d604e1107a92c94f8b8a2f0e1cb2d1e2ecc39`; not assumed deployed).
 An operator supplies a private `psst-pairing-v1` JSON file for `claude-code`.
 Do not paste its secret into chat, command arguments, logs or URLs.
 
@@ -17,7 +17,7 @@ HTTPS enrollment, validates the returned receipt, then starts the normal transpo
 No environment variable or second agent is required. Existing private connection
 bundles remain accepted by the same command.
 
-State is private under `~/.config/psst/enrollment`, separate from native-session
+State is private under `$CLAUDE_CONFIG_DIR/psst/enrollment` when configured, otherwise `~/.config/psst/enrollment`, separate from native-session
 inboxes. This is one installation credential, not a shared credential for every
 agent. Each native session still has a fresh broker session address. Identity
 reports credential ID/expiry, never token or pairing secret. Lost/uncertain
@@ -51,7 +51,9 @@ remain unchanged; connecting is not proof of automatic model wakeup.
 
 `vendor/enrollment.mjs` is verbatim `reference/enrollment.mjs` from the commit above
 (MIT, same Psst license in `vendor/psst/LICENSE`). SHA256:
-`afeab00d7c2d6768d3537bd7c350e249768897bf81eff9b4ae9796f7c3f9dbe9`.
+`72318244ac7b799570704f59e167a0684b6c567cb6cda90303f32d7056ee0a06`.
 `src/enrollment-support.mjs` verifies it before dynamic import. The older transport
 snapshot remains unchanged. Unit fixtures cover helper-produced bundles, strict
 receipt validation, partition selection and restart revalidation. MCP integration also exercises real HTTPS with a synthetic enrollment endpoint: private file issuance, token authentication, replacement credential isolation, and recovery of the old pending receipt. The native parent and issuance handler remain fixtures, not authenticated Claude or production issuance certification. Legacy real HTTP integration remains covered.
+
+Native private setup: see [installation selection](installation-selection.md). The new in-memory helper is pinned to the exact source above; its upstream PR is not assumed merged.
