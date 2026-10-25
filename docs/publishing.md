@@ -1,0 +1,34 @@
+# Distribution and npm publishing
+
+The supported native Claude marketplace install works directly from the reviewed
+GitHub branch/tag. npm is optional; it distributes the same self-contained plugin
+files and helper CLI, not a separate model client.
+
+The npm package is prepared as `claude-code-broker-connector` version `0.2.0`.
+No package was published as part of implementation. Verify ownership/name
+availability with your npm account before first publication. A scoped name can
+be chosen if the unscoped name is unavailable; update README/package tests too.
+
+The release-triggered workflow follows the existing pi-intercom-review-pair
+trusted-publishing pattern, adding version matching, full tests, pack/install
+checks, pinned Actions, and an integration gate before publishing. It does not
+store an npm token in this repository.
+
+For trusted publication configure npm's GitHub Actions trusted publisher for:
+- GitHub owner: `matuto-ai`
+- Repository: `claude-code-broker-connector`
+- Workflow filename: `npm-publish.yml`
+
+Creating/configuring that publisher is an account-security action for the owner.
+If npm requires an initial package publication before a trusted publisher can be
+configured, complete that one-time bootstrap in your authenticated npm environment.
+Do not paste a token into chat or into a committed workflow. The workflow cannot
+magically create publisher permissions.
+
+After reviewing and merging the PR, create release `v0.2.0` from the reviewed
+commit. The tag must match package.json. Tests run first, then npm publication
+uses short-lived OIDC and provenance. Verify the Actions run and npm package
+version before giving users npm install instructions. Native GitHub installation
+does not require waiting for npm.
+
+Official documentation: https://docs.npmjs.com/trusted-publishers/
