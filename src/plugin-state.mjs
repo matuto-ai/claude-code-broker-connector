@@ -1,6 +1,8 @@
+import { lstatSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, isAbsolute, dirname, resolve } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { readEnrollmentReceipt } from './enrollment-support.mjs';
+import { randomUUID, createHash } from 'node:crypto';
 import { readPrivateJson, writePrivateJson, privateDirectory, processIdentity } from './launch-state.mjs';
 
 const safeText = (v, max) => typeof v === 'string' && v.length > 0 && v.length <= max && !/[\u0000-\u001f\u007f-\u009f]/u.test(v);
@@ -8,10 +10,17 @@ export function nativeStateConfig() { return {stateRoot:join(homedir(), '.config
 export function configPath(env = process.env) { return env.PSST_CLAUDE_CONFIG || env.PSST_CONFIG_FILE || join(homedir(), '.config', 'psst', 'claude.json'); }
 export function readPluginConfig(path = configPath()) {
   if (!isAbsolute(path)) throw new Error('absolute_config_path_required');
-  let config = readPrivateJson(path);
+  let config = readPrivateJson(path), enrollment;
   if (config?.format === 'broker-client-bundle-v1') {
-    const allowed = ['format','protocol_version','broker_url','token_file','file_paths_relative_to','authorization_header','authorization_scheme','insecure_development','allowed_client_types','scope','ca_file','expires_at'];
+    const allowed = ['format','protocol_version','broker_url','token_file','file_paths_relative_to','authorization_header','authorization_scheme','insecure_development','allowed_client_types','scope','ca_file','expires_at','enrollment_receipt_file'];
     if (Object.keys(config).some(key => !allowed.includes(key)) || config.protocol_version !== '1' || config.file_paths_relative_to !== 'connection_file_directory' || config.authorization_header !== 'Authorization' || config.authorization_scheme !== 'Bearer' || config.insecure_development !== false || !Array.isArray(config.allowed_client_types) || config.allowed_client_types.length !== 1 || config.allowed_client_types[0] !== 'claude-code' || typeof config.token_file !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(config.token_file) || !safeText(config.scope,128) || (config.ca_file !== undefined && (typeof config.ca_file !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(config.ca_file))) || (config.expires_at !== undefined && (!Number.isFinite(Date.parse(config.expires_at)) || Date.parse(config.expires_at) <= Date.now()))) throw new Error('incompatible_client_bundle');
+    if(config.enrollment_receipt_file===undefined){
+      try{lstatSync(join(dirname(path),'enrollment.json'));throw Error('missing_enrollment_marker');}catch(error){if(error.code!=='ENOENT')throw error;}
+    }
+    if(config.enrollment_receipt_file!==undefined){
+      if(config.enrollment_receipt_file!=='enrollment.json')throw Error('incompatible_client_bundle');
+      enrollment={connectionFile:path,...readEnrollmentReceipt({connectionFile:path,clientType:'claude-code'})};
+    }
     const root = dirname(path);
     config = { brokerUrl: config.broker_url, tokenFile: resolve(root, config.token_file), stateRoot: join(root, 'state'), name: 'claude-code', project: null, ...(config.ca_file ? {caFile:resolve(root,config.ca_file)}:{}), ...(config.insecure_development === true ? {insecureDevelopment:true}:{}) };
   }
@@ -22,7 +31,7 @@ export function readPluginConfig(path = configPath()) {
   const url = new URL(config.brokerUrl);
   if (url.username || url.password || url.search || url.hash || url.pathname !== '/' || !(url.protocol === 'https:' || config.insecureDevelopment === true && url.protocol === 'http:' && ['127.0.0.1','[::1]'].includes(url.hostname))) throw new Error('https_broker_required');
   if (config.insecureDevelopment !== undefined && typeof config.insecureDevelopment !== 'boolean') throw new Error('invalid_plugin_config');
-  return config;
+  return {...config,...(enrollment?{enrollment}:{})};
 }
 export function hostDirectory(config, host = processIdentity(process.ppid)) {
   privateDirectory(config.stateRoot);
@@ -60,3 +69,12 @@ export function pluginHook(config, event, host = processIdentity(process.ppid)) 
   return null;
 }
 export function bindingModel(binding) { return {provider:null,id:binding.model ?? null,source:binding.model?'observed':'unknown'}; }
+
+/** Separate new enrollment principals while preserving genuine legacy journal paths. */
+export function journalName(lifetime,config){return `inbox-${lifetime}`+(config.enrollment?`-credential-${createHash('sha256').update(config.enrollment.credentialId).digest('hex')}`:'');}
+export function refreshEnrollment(config){
+ if(!config.enrollment)return config;
+ const refreshed=readPluginConfig(config.enrollment.connectionFile);
+ if(!refreshed.enrollment||refreshed.enrollment.credentialId!==config.enrollment.credentialId)throw Error('enrollment_identity_changed');
+ return refreshed;
+}

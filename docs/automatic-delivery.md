@@ -11,12 +11,13 @@ With this plugin already loaded before SessionStart, run:
 The native skill calls `broker_connect`, then identity/list tools. No raw token is
 accepted by the tool, copied into chat, or passed on a shell command line. Existing
 private enrollment bundles and custom connection JSON both work. Secure one-use
-pairing integration is separate; do not invent or share another client's token.
+[pairing files](pairing.md) are also accepted; do not invent or share another client's token.
 
 SessionStart records the native PID/start/boot/session lifetime independently of
 broker configuration. The MCP server stays available while disconnected. Existing
 0.2.1 configured sessions retain their legacy journal fallback. Connection paths
-are private and session-bound; one lifetime cannot switch broker/token paths.
+are private and session-bound. Legacy journals cannot switch broker/token paths;
+explicit replacement enrollment uses a separate credential-bound journal.
 MCP EOF in the same live session preserves its pending journal. A new native
 session never adopts it.
 

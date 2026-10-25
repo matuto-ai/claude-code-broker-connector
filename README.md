@@ -116,3 +116,7 @@ Bundled runtime source is unmodified and SHA256-checked against Psst commit
 `ba2219cd87a1feac23e01b23d2c2b3d3bdd65359`, with MIT attribution. The older
 `bin/launch.mjs` exact-session launcher remains only as a compatibility fixture;
 the normal installation path above does not use it.
+
+### Private pairing files
+
+The same `/psst:connect /absolute/private/file.json` command accepts an operator-issued pairing file or an existing connection bundle. Never paste a secret into chat. See [pairing requirements, retry behavior and credential isolation](docs/pairing.md).

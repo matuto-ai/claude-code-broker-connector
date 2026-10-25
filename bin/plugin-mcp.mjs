@@ -1,12 +1,14 @@
 #!/usr/bin/env node
+import { homedir } from 'node:os';
+import { connectPairingFile } from '../src/enrollment-support.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeFileSync } from 'node:fs';
 import { readPrivateJson, writePrivateJson, privateDirectory } from '../src/launch-state.mjs';
 import { verifyReference } from '../src/reference-pin.mjs';
-import { readPluginConfig, nativeStateConfig, hostDirectory, readBinding, verifyBinding, bindingModel } from '../src/plugin-state.mjs';
+import { readPluginConfig, nativeStateConfig, hostDirectory, readBinding, verifyBinding, bindingModel, journalName, refreshEnrollment } from '../src/plugin-state.mjs';
 
-let server,runtime,inbox,timer,live=true,expected,directory,host,tools,connected=false,connecting=false,disabled=false;
+let server,runtime,inbox,timer,live=true,expected,directory,host,tools,connected=false,connecting=false,disabled=false,generation=0;
 let legacyConfig=null,connectedConfig=null,lastNotice=null,lastNoticeAt=0;
 const failure=(code,effect='not_applied')=>({error:{code,retryable:true,effect}});
 const bound=()=>live&&expected&&verifyBinding(directory,expected);
@@ -39,12 +41,13 @@ try {
   }return false;
  }
  async function connect(config){
+  config=refreshEnrollment(config);
   if(connecting)return failure('connection_busy');
   if(!confirm())return failure('session_binding_unavailable');
-  if(connected)return connectedConfig.brokerUrl===config.brokerUrl&&connectedConfig.tokenFile===config.tokenFile?tools.broker_identity():failure('connection_conflict');
-  connecting=true;
+  if(connected)return connectedConfig.brokerUrl===config.brokerUrl&&connectedConfig.tokenFile===config.tokenFile&&connectedConfig.enrollment?.credentialId===config.enrollment?.credentialId?tools.broker_identity():failure('connection_conflict');
+  connecting=true;disabled=false;const epoch=generation;
   try{
-   const journal=privateDirectory(join(directory,`inbox-${expected.lifetime}`));
+   const journal=privateDirectory(join(directory,journalName(expected.lifetime,config)));
    const pin=join(journal,'connection.json');
    // One lifetime cannot silently adopt a different broker or credential path.
    try{const old=readPrivateJson(pin);if(old.brokerUrl!==config.brokerUrl||old.tokenFile!==config.tokenFile) return failure('connection_conflict');}
@@ -55,19 +58,35 @@ try {
    const client=new BrokerClient({url:config.brokerUrl,tokenFile:config.tokenFile,caFile:config.caFile,insecureDevelopment:config.insecureDevelopment===true,inbox});
    runtime=new AdapterRuntime({client,inbox,verifySession:bound,isAlive:bound,onDiagnostic:({code})=>process.stderr.write(`psst_${code}\n`)});
    tools={...createTools({client,inbox,observeMetadata:()=>({model:bindingModel(readBinding(directory))})}),...createCooperativeInbox({inbox,isActive:active}),
-    broker_identity:async()=>({monitor_attention:monitorAttention(),client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'cooperative_read_with_bounded_monitor_notices',automatic_wakeup:'monitor_requires_interactive_connect_skill',native_acceptance_recorded:false})};
+    broker_identity:async()=>({credential_id:config.enrollment?.credentialId??null,credential_expires_at:config.enrollment?.expiresAt??null,monitor_attention:monitorAttention(),client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'cooperative_read_with_bounded_monitor_notices',automatic_wakeup:'monitor_requires_interactive_connect_skill',native_acceptance_recorded:false})};
    await runtime.start({name:config.name,project:config.project??null,model:bindingModel(expected)});
-   if(!bound())throw Error('session_changed');connected=true;connectedConfig=config;disabled=false;writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:false,config});status();return tools.broker_identity();
-  }catch{await stop(false);return failure('connection_failed','unknown');}finally{connecting=false;}
+   if(!bound()||generation!==epoch||disabled)throw Error('session_changed');connected=true;connectedConfig=config;disabled=false;writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:false,config});status();return tools.broker_identity();
+  }catch{await stop(!bound());return failure(generation!==epoch?'connection_cancelled':'connection_failed','unknown');}finally{connecting=false;}
  }
  const names=['broker_list_clients','broker_send','broker_update_metadata','broker_message_status','broker_receive','broker_acknowledge','broker_identity'];
  const guarded=Object.fromEntries(names.map(name=>[name,async args=>{
   if(!active())return failure(expected?'not_connected':'session_binding_unavailable');
   const result=await tools[name](args);status();return result;
  }]));
- guarded.broker_connect=async({connection_file})=>{try{return await connect(readPluginConfig(connection_file));}catch{return failure('invalid_connection_file');}};
- guarded.broker_disconnect=async()=>{if(connecting)return failure('connection_busy');disabled=true;if(expected)writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:true});await stop(false);return{connected:false,pending_retained:true,native_acceptance_recorded:false};};
- server=serveStdio({tools:guarded,onClose:async()=>{const closeSession=!bound();live=false;await stop(closeSession);},onDiagnostic:()=>{}});
+ let pairing=false;
+ guarded.broker_connect=async({connection_file})=>{
+  if(pairing||connecting)return failure('connection_busy');
+  if(!confirm())return failure('session_binding_unavailable');
+  try{
+   const input=readPrivateJson(connection_file);
+   if(input?.format==='psst-pairing-v1'){
+    if(connected)return failure('disconnect_before_pairing');
+    pairing=true;const epoch=generation;
+    const result=await connectPairingFile({pairingFile:connection_file,directory:join(homedir(),'.config','psst','enrollment'),clientType:'claude-code'});
+    if(epoch!==generation||!bound())return failure('connection_cancelled','unknown');
+    return await connect(readPluginConfig(result.connectionFile));
+   }
+   return await connect(readPluginConfig(connection_file));
+  }catch(error){return failure(error.effect==='unknown'?'enrollment_or_connection_uncertain':'invalid_connection_file',error.effect==='unknown'?'unknown':'not_applied');}
+  finally{pairing=false;}
+ };
+ guarded.broker_disconnect=async()=>{generation++;disabled=true;connected=false;if(expected)writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:true});status();if(connecting)void runtime?.stop({closeSession:false}).catch(()=>{});else await stop(false);return{connected:false,pending_connection_cancelled:connecting||pairing,pending_retained:true,native_acceptance_recorded:false};};
+ server=serveStdio({tools:guarded,onClose:async()=>{const closeSession=!bound();generation++;live=false;await stop(closeSession);},onDiagnostic:()=>{}});
  // Stay available while disconnected. Never retry failed enrollment/auth indefinitely.
  let autoAttempted=false;
  timer=setInterval(()=>{void(async()=>{
