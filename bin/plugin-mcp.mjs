@@ -7,11 +7,23 @@ import { verifyReference } from '../src/reference-pin.mjs';
 import { readPluginConfig, nativeStateConfig, hostDirectory, readBinding, verifyBinding, bindingModel } from '../src/plugin-state.mjs';
 
 let server,runtime,inbox,timer,live=true,expected,directory,host,tools,connected=false,connecting=false,disabled=false;
-let legacyConfig=null,connectedConfig=null;
+let legacyConfig=null,connectedConfig=null,lastNotice=null,lastNoticeAt=0;
 const failure=(code,effect='not_applied')=>({error:{code,retryable:true,effect}});
 const bound=()=>live&&expected&&verifyBinding(directory,expected);
 const active=()=>connected&&bound();
-async function stop(closeSession){connected=false;await runtime?.stop({closeSession});inbox?.close();runtime=null;inbox=null;tools=null;}
+function status(){
+ if(!directory||!expected)return;
+ const head=connected&&inbox?inbox.head():null;
+ const value={host,sessionId:expected.sessionId,lifetime:expected.lifetime,connected:!!active(),pending_id:head?.state==='pending'?head.message_id:null};
+ const key=JSON.stringify(value),now=Date.now();
+ if(key===lastNotice&&now-lastNoticeAt<2000)return;
+ writePrivateJson(join(directory,'notice.json'),{...value,updated_at:now});lastNotice=key;lastNoticeAt=now;
+}
+function monitorAttention(){
+ try{const s=readPrivateJson(join(directory,'monitor-state.json'));if(s.sessionId===expected.sessionId&&s.lifetime===expected.lifetime&&s.pending_id===(inbox?.head()?.message_id??null)&&Date.now()-s.updated_at>=0&&Date.now()-s.updated_at<5000)return {attention_required:s.attention_required===true,rate_limited:s.rate_limited===true,next_retry_at:s.next_retry_at};}catch{}
+ return {state:'not_observed'};
+}
+async function stop(closeSession){connected=false;status();await runtime?.stop({closeSession});inbox?.close();runtime=null;inbox=null;tools=null;}
 try {
  const root=dirname(dirname(fileURLToPath(import.meta.url)));verifyReference(join(root,'vendor','psst'));
  const [{Inbox,newSessionIdentity},{BrokerClient},{AdapterRuntime},{createTools},{createCooperativeInbox},{serveStdio}]=await Promise.all([
@@ -43,15 +55,15 @@ try {
    const client=new BrokerClient({url:config.brokerUrl,tokenFile:config.tokenFile,caFile:config.caFile,insecureDevelopment:config.insecureDevelopment===true,inbox});
    runtime=new AdapterRuntime({client,inbox,verifySession:bound,isAlive:bound,onDiagnostic:({code})=>process.stderr.write(`psst_${code}\n`)});
    tools={...createTools({client,inbox,observeMetadata:()=>({model:bindingModel(readBinding(directory))})}),...createCooperativeInbox({inbox,isActive:active}),
-    broker_identity:async()=>({client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'cooperative_pull',automatic_wakeup:false,native_acceptance_recorded:false})};
+    broker_identity:async()=>({monitor_attention:monitorAttention(),client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'cooperative_read_with_bounded_monitor_notices',automatic_wakeup:'monitor_requires_interactive_connect_skill',native_acceptance_recorded:false})};
    await runtime.start({name:config.name,project:config.project??null,model:bindingModel(expected)});
-   if(!bound())throw Error('session_changed');connected=true;connectedConfig=config;disabled=false;writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:false,config});return tools.broker_identity();
+   if(!bound())throw Error('session_changed');connected=true;connectedConfig=config;disabled=false;writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:false,config});status();return tools.broker_identity();
   }catch{await stop(false);return failure('connection_failed','unknown');}finally{connecting=false;}
  }
  const names=['broker_list_clients','broker_send','broker_update_metadata','broker_message_status','broker_receive','broker_acknowledge','broker_identity'];
  const guarded=Object.fromEntries(names.map(name=>[name,async args=>{
   if(!active())return failure(expected?'not_connected':'session_binding_unavailable');
-  return tools[name](args);
+  const result=await tools[name](args);status();return result;
  }]));
  guarded.broker_connect=async({connection_file})=>{try{return await connect(readPluginConfig(connection_file));}catch{return failure('invalid_connection_file');}};
  guarded.broker_disconnect=async()=>{if(connecting)return failure('connection_busy');disabled=true;if(expected)writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:true});await stop(false);return{connected:false,pending_retained:true,native_acceptance_recorded:false};};
@@ -66,6 +78,7 @@ try {
    try{const a=readPrivateJson(join(directory,'activation.json'));if(a.sessionId===expected.sessionId&&a.lifetime===expected.lifetime){disabled=a.disabled===true;config=a.config??null;}}catch{}
    if(config&&!disabled)await connect(config);
   }
+  if(active())status();
  })().catch(()=>{live=false;void server.close();});},250);
  await server.done;
 }catch{process.stderr.write('psst_mcp_unavailable: native session/configuration check failed; no message was acknowledged.\n');process.exitCode=1;}

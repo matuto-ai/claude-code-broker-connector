@@ -1,3 +1,10 @@
+# Verification scope
+
+The historical baseline below covers cooperative 0.2.1. The new native monitor
+prototype has additional bounded-notice tests and an explicit authenticated
+validation gap documented in [automatic-delivery.md](automatic-delivery.md).
+It does not inherit an authenticated wakeup claim from these older checks.
+
 # Native plugin verification — October 24, 2026
 
 The `0.2.0` native plugin replaces the wrapper-only installation path described
