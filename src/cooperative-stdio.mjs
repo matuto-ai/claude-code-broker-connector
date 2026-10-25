@@ -14,6 +14,8 @@ const model = object({ provider: { type: ['string', 'null'], maxLength: 128 }, i
 const metadata = object({ name: text(128), model, project: { type: ['string', 'null'], maxLength: 256 } });
 
 export const TOOL_DEFINITIONS = Object.freeze([
+  {name:'broker_connect',description:'Connect this confirmed native session using an absolute private connection JSON file; no raw credentials.',inputSchema:object({connection_file:text(4096)},['connection_file'])},
+  {name:'broker_disconnect',description:'Disconnect transport; retain pending local messages. Does not acknowledge messages.',inputSchema:object()},
   { name: 'broker_identity', description: 'Return this exact native-session address. A new native session has a new address; rediscover it.', inputSchema: object() },
   { name: 'broker_acknowledge', description: 'Explicitly acknowledge that you read a previously received message using its receipt_token. Advances only that pending FIFO head. This is not human approval, action success or a native injection receipt.', inputSchema: object({ message_id: uuid, receipt_token: uuid }, ['message_id', 'receipt_token']) },
   { name: 'broker_list_clients', description: 'List authorized exact session addresses. Names and models are descriptive, not routing authority.', inputSchema: object({ connected: { type: 'boolean' }, client_type: { enum: ['pi', 'antigravity-cli', 'claude-code', 'opencode'] }, name: text(128), project: text(256), cursor: text(256), limit: { type: 'integer', minimum: 1, maximum: 100 } }) },

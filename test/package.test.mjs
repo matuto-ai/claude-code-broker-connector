@@ -15,7 +15,7 @@ test('packed native plugin installs without lifecycle scripts or sibling checkou
  const sourcePackage=JSON.parse(readFileSync(new URL('../package.json',import.meta.url)));
  assert.equal(artifact.version,sourcePackage.version);
  assert.equal(artifact.filename,`matuto-ai-claude-code-broker-connector-${sourcePackage.version}.tgz`);
- for(const required of ['.mcp.json','.claude-plugin/plugin.json','.claude-plugin/marketplace.json','hooks/hooks.json','bin/plugin-mcp.mjs','vendor/psst/reference/inbox.mjs','vendor/psst/LICENSE'])assert(names.includes(required),required);
+ for(const required of ['.mcp.json','.claude-plugin/plugin.json','.claude-plugin/marketplace.json','hooks/hooks.json','skills/connect/SKILL.md','skills/disconnect/SKILL.md','bin/plugin-mcp.mjs','vendor/psst/reference/inbox.mjs','vendor/psst/LICENSE'])assert(names.includes(required),required);
  assert(!names.some(x=>x.endsWith('.sqlite')||x.endsWith('.tgz')||x.includes('token')));
  const installed=run(['install','--prefix',join(temp,'install'),'--ignore-scripts','--offline','--no-audit','--no-fund',join(temp,artifact.filename)]);assert.equal(installed.status,0,installed.stderr);
  const root=join(temp,'install/node_modules/@matuto-ai/claude-code-broker-connector');

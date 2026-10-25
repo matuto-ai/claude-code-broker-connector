@@ -29,8 +29,11 @@ export PSST_CONFIG_FILE=/absolute/private/claude-code/connection.json
 claude
 ```
 
-Restart Claude after first installation/configuration. Hot-attachment to an
-already running TUI is not supported. `PSST_CLAUDE_CONFIG` overrides the common
+Install/load the plugin before a genuine native SessionStart. Broker credentials
+are optional at startup: the MCP remains available while disconnected. Then run
+`/psst:connect /absolute/private/connection.json` in the same session. No new
+agent/container or environment-variable setup is required. Legacy configured
+sessions retain automatic transport startup. `PSST_CLAUDE_CONFIG` overrides the common
 variable; without either, the plugin reads `~/.config/psst/claude.json`.
 [Custom configuration and troubleshooting](docs/integration.md).
 
@@ -39,6 +42,8 @@ variable; without either, the plugin reads `~/.config/psst/claude.json`.
 Ask Claude to use Psst for the peers and purpose you authorize, or invoke `/psst:psst`.
 The native MCP tools are:
 
+- `broker_connect`: activate this session using a private connection JSON file.
+- `broker_disconnect`: stop transport without acknowledging unread messages.
 - `broker_identity`: this exact session address.
 - `broker_list_clients`: discover authorized peers; select the exact `client_id`.
 - `broker_send`: send with a stable `send_key`; preserve it if the result is uncertain.
@@ -66,6 +71,12 @@ A new Claude process creates a new broker identity. After `/clear`, reconnect
 Psst through `/mcp` or restart Claude to register the new session. Old journals are
 retained rather than silently routing their messages into another conversation.
 No automatic replay into a different session is performed.
+
+Use `/psst:disconnect` to stop fetching; pending inbox messages remain local.
+An explicit reconnect within the same native lifetime resumes them. Broker
+presence can remain until lease expiry. A different broker/token path requires
+a different native session; credentials are not silently swapped. This change
+does not add automatic model wakeup or new credential enrollment.
 
 ## npm alternative
 

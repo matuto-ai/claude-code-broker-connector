@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readPrivateJson, writePrivateJson, privateDirectory, processIdentity } from './launch-state.mjs';
 
 const safeText = (v, max) => typeof v === 'string' && v.length > 0 && v.length <= max && !/[\u0000-\u001f\u007f-\u009f]/u.test(v);
+export function nativeStateConfig() { return {stateRoot:join(homedir(), '.config', 'psst', 'native')}; }
 export function configPath(env = process.env) { return env.PSST_CLAUDE_CONFIG || env.PSST_CONFIG_FILE || join(homedir(), '.config', 'psst', 'claude.json'); }
 export function readPluginConfig(path = configPath()) {
   if (!isAbsolute(path)) throw new Error('absolute_config_path_required');
