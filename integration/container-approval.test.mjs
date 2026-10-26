@@ -14,9 +14,15 @@ test('Docker recreate preserves only Claude config volume and resumes same pendi
  async function start(){
   const args=['run','--rm','-i','--network','host','--user',`${process.getuid()}:${process.getgid()}`,'-e','HOME=/tmp/native-home','-e','CLAUDE_CONFIG_DIR=/data','-e',`PSST_PLUGIN_BROKER_URL=${broker.brokerUrl}`,'-e','NODE_EXTRA_CA_CERTS=/fixture.crt','-v',`${volume}:/data`,'-v',`${broker.certFile}:/fixture.crt:ro`,process.env.PSST_TEST_DOCKER];
   const child=spawn('docker',args,{stdio:['pipe','pipe','pipe']});t.after(()=>{if(child.exitCode===null)child.kill('SIGTERM');});let buffer='',id=0,stderr='';const waiters=new Map(),ended=new Promise(r=>child.on('close',r));child.stderr.on('data',c=>stderr+=c);child.stdout.on('data',c=>{buffer+=c;while(buffer.includes('\n')){const n=buffer.indexOf('\n'),r=JSON.parse(buffer.slice(0,n));buffer=buffer.slice(n+1);waiters.get(r.id)?.(r);waiters.delete(r.id);}});
-  const ask=(method,params)=>new Promise(r=>{const next=++id;waiters.set(next,r);child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');});await ask('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'container-fixture',version:'0'}});child.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');const call=async(name,args={})=>JSON.parse((await ask('tools/call',{name,arguments:args})).result.content[0].text);return {child,ended,call,get stderr(){return stderr;}};
+  const ask=(method,params)=>new Promise((resolve,reject)=>{
+   const next=++id,fail=reason=>{clearTimeout(timer);waiters.delete(next);child.off('close',closed);reject(Error(`${reason}: ${method}: ${stderr.slice(-4000)}`));},closed=code=>fail(`container_closed_${code}`);
+   const timer=setTimeout(()=>fail('container_rpc_timeout'),10000);child.once('close',closed);
+   if(child.exitCode!==null)return fail(`container_already_closed_${child.exitCode}`);
+   waiters.set(next,response=>{clearTimeout(timer);child.off('close',closed);resolve(response);});
+   child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');
+  });await ask('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'container-fixture',version:'0'}});child.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');const call=async(name,args={})=>JSON.parse((await ask('tools/call',{name,arguments:args})).result.content[0].text);return {child,ended,call,get stderr(){return stderr;}};
  }
- const first=await start();const pending=await first.call('broker_setup');assert.equal(pending.state,'pending');first.child.stdin.end();assert.equal(await first.ended,0,first.stderr);
+ const first=await start();const pending=await first.call('broker_setup');assert.equal(pending.state,'pending');first.child.stdin.end();assert.equal(await Promise.race([first.ended,delay(10000).then(()=>{throw Error('first_container_close_timeout: '+first.stderr);})]),0,first.stderr);
  await broker.decide(pending.requestId,'approve');
  const second=await start();let approved;for(let i=0;i<300;i++){approved=await second.call('broker_identity');if(approved.client_id)break;await delay(25);}assert(approved.client_id,JSON.stringify({approved,stderr:second.stderr}));second.child.stdin.end();assert.equal(await second.ended,0,second.stderr);
  const journalFiles=readdirSync(join(volume,'psst','native'),{recursive:true}).filter(p=>p.endsWith('identity.json'));assert(journalFiles.length>0,'native journal must survive outside disposable HOME');
