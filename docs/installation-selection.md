@@ -1,6 +1,6 @@
 # One installation, separate native sessions
 
-This describes the 0.4.0 source. Version preparation is not publication and does
+This describes the 0.5.0 source. Version preparation is not publication and does
 not claim authenticated native monitor acceptance.
 
 ## Configure once, inside Claude
@@ -12,51 +12,68 @@ fallback when that option is blank. URLs must be HTTPS origins with no credentia
 query, fragment or path. A configured origin is checked against the authorized
 installation; it never redirects an existing token to another broker.
 
-A URL is **not authorization**. For first setup, configure the URL and one-use
-`pairing_secret` in Claude's native plugin dialog. The secret field is marked
-sensitive and reaches only MCP environment substitution, never skill text or tool
-arguments. Explicit `/psst:connect` invokes zero-argument `broker_setup`; it uses
-the existing enrollment API and stores a durable installation credential. No
-secret needs to be pasted into chat or a shell. If the native UI offers removal, clear the one-use secret there after success.
-CLI 2.1.310 `configure --values-stdin` with an empty sensitive value preserves
-the old value; no supported CLI removal option was found. The plugin does not edit
-Claude credential storage or claim automatic removal. Startup never reads it to enroll or
-repair failed authorization: it uses only the saved credential. A retained secret
-is not permission to retry enrollment. Existing private file input remains valid.
+A URL is **not authorization**. Explicit `broker_setup` uses only the native
+broker URL. The shared approval helper durably writes its random candidate and
+request ID before any POST. The operator approves the exact request through the
+broker's password form UI; no Basic authentication or secret handoff is required.
+The primary plugin manifest has no pairing-secret field. Existing secret-based
+bundles remain valid for backward compatibility but are never implicitly copied.
 
-Apply configuration before first setup: close the native `/plugin` panel and
-check that its plugin reload completed. If changes remain pending, run
-`/reload-plugins` inside the interactive session; if Claude warns about prompt
-cache cost, the user can explicitly accept its `--force` guidance or start a fresh
-session. Do not loop `broker_setup` against an old MCP environment. Configuration
-saved by the shell CLI requires a restart to apply. Non-interactive/desktop reload
-does not reconnect plugin MCP processes, so start a fresh session there. This is
-initial configuration application, not a command required for every new session.
-Official behavior: https://code.claude.com/docs/en/plugins/install#manage-installed-plugins
-and https://code.claude.com/docs/en/plugins/cli-reference#reload-plugins .
+Pending status is polled by the host no more frequently than every two seconds, independently of
+the model. Its durable setup context remembers broker origin, request ID and the
+original selection revision, never a second credential copy. Startup may GET an
+existing explicit pending request; it never POSTs, creates a key or rotates access.
+A failed/uncertain POST keeps the same durable request. Missing, corrupted or
+terminal state cannot trigger an automatic replacement. Server Retry-After and shared installation cooldown are honored (up to five minutes). Denied/expired stops
+polling. Local cancellation and disconnect suppress that native lifetime's resume.
 
-Official CLI 2.1.310 with isolated synthetic configuration verified persistence
-across processes and redaction from configuration output. On this Linux fixture,
-secure storage fell back to a mode-0600 plaintext credentials file: this is not a
-claim of encrypted-at-rest storage. MCP fixtures verify explicit setup, cancellation
-and restart without reissuance; authenticated native dialog-to-MCP handoff and live
-monitor delivery remain acceptance gates. No native trust or permissions are bypassed.
+An explicitly requested replacement preserves working authorization while pending.
+After approval, attach validates the marked receipt and original selection revision;
+failed attach/selection restores the previous connection when the lifetime remains
+valid. Old credential-bound journals are retained, not migrated into a new identity.
+The broker operator revokes old authorization separately if desired.
+
+Apply initial URL configuration by closing the native `/plugin` panel and checking
+its reload. If changes remain pending, use `/reload-plugins` in the interactive
+session or start a fresh session; heed native cache/permission warnings. Shell
+configuration needs a new process, and non-interactive/desktop reload does not
+reconnect MCP servers. This is initial configuration, not a per-session command.
+
+Official Claude 2.1.310 `--init-only` audit proves persisted native URL substitution
+into a newly loaded MCP plus matching native parent/session bindings, without
+login or model usage. It does not prove interactive dialog behavior, authenticated
+model acceptance or actual delivery to the user's host. Those gates remain honest.
 
 A successful explicit `broker_setup` or `broker_connect` remembers the selected connection file.
 New native sessions in that same installation scope then attach automatically.
 No repeated connect command, per-session credential file or agent/model polling
 loop is needed. An unsuccessful or cancelled connection never changes selection.
-If saving loses a concurrent-choice race, the result reports `saved:false`; the
-current successful session remains connected, but future sessions keep the other
-choice. Retry/change must be explicit, not an automatic overwrite.
+For legacy explicit connect, losing a concurrent selection race reports `saved:false`
+and keeps that session connected without changing future sessions. Approved setup
+is transactional: selection failure restores the previous connection instead.
+Retry/change must be explicit, not an automatic overwrite.
 
 ## Persistence boundary
 
 With an absolute `CLAUDE_CONFIG_DIR`, private state goes under its `psst/` child:
-`selected-installation.json` and new pairing-generated enrollment credentials,
-receipts and connection files. This reuses the existing mounted config volume.
+`selected-installation.json`, `setup-context.json`, and new approval credentials,
+receipts and connection files under `approvals/<origin-and-client-hash>/`. This reuses the existing mounted config volume.
 Outside that environment the existing `~/.config/psst` fallback is retained.
 No files on an existing installation are moved by loading this version.
+
+New native lifetimes keep their binding, activation and credential-specific inbox
+journals under `CLAUDE_CONFIG_DIR/psst/native/`. Installation authorization is shared;
+these native lifetime IDs and journals are not. The explicit absolute
+`PSST_CLAUDE_NATIVE_STATE_ROOT` override takes precedence. Without a config volume,
+the historical `~/.config/psst/native/` fallback remains.
+
+On upgrade, an exact live legacy binding verified by boot ID, PID/start time and
+native session may finish in its original directory. Mere legacy file existence
+does not send future lifetimes back to ephemeral storage. Nothing copies, moves
+or adopts its unread inbox into another native identity. Retaining the config
+volume across a container restart preserves journals, while a genuinely new native
+session still receives a new identity; old unread data belongs only to its original
+lifetime. External legacy paths are durable only if their own storage is retained.
 
 Legacy external bundles remain supported and are not copied or rewritten.
 A pointer to `/tmp/connection.json` does not make that file or its token durable.

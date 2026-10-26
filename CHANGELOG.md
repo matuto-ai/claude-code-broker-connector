@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+- Configure only a broker HTTPS URL inside Claude, explicitly request access, and approve the exact installation in the broker operator UI. No pairing-secret field or per-session file handoff.
+- Resume existing pending requests after restart with GET only, preserving request/key identity and honoring shared server backoff. Never enroll automatically on ordinary startup or auth failure.
+- Keep existing authorization while replacement is pending; fence cancellation during attachment and roll back failed attachment/selection without disconnecting other native sessions.
+- Persist new native bindings and inbox journals under the mounted Claude config volume, retaining only verified live legacy bindings in place.
+- Add actual broker TLS/admin-form, concurrent-session, lost-response, cancellation and container-recreation fixtures. Native authenticated interactive monitor acceptance remains a separate environment gate.
+
+
 ## 0.4.0
 
 - Configure broker URL and a sensitive one-use pairing secret inside Claude;

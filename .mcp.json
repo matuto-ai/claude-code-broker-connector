@@ -6,8 +6,7 @@
         "${CLAUDE_PLUGIN_ROOT}/bin/plugin-mcp.mjs"
       ],
       "env": {
-        "PSST_PLUGIN_BROKER_URL": "${user_config.broker_url}",
-        "PSST_PLUGIN_PAIRING_SECRET": "${user_config.pairing_secret}"
+        "PSST_PLUGIN_BROKER_URL": "${user_config.broker_url}"
       }
     }
   }

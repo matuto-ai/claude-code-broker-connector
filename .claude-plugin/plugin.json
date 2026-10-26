@@ -1,6 +1,6 @@
 {
   "name": "psst",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Session-bound Psst agent messaging with explicit receive and acknowledgment. Bounded opt-in native notices; no permission relay.",
   "author": {
     "name": "Bruno Orsolon"
@@ -11,16 +11,8 @@
     "broker_url": {
       "type": "string",
       "title": "Psst broker URL",
-      "description": "HTTPS broker origin. This is not a credential; a previously authorized installation is still required. Leave blank to use the selected installation or PSST_BROKER_URL.",
+      "description": "HTTPS broker origin. Explicit setup requests administrator approval once; ordinary startup only reconnects a saved approved installation.",
       "required": false,
-      "default": ""
-    },
-    "pairing_secret": {
-      "type": "string",
-      "title": "Psst one-use pairing secret",
-      "description": "Enter only in this native private configuration field, never in chat. Used solely by explicit setup, not startup. Remove through native UI after successful setup if supported.",
-      "required": false,
-      "sensitive": true,
       "default": ""
     }
   }
