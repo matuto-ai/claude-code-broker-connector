@@ -1,5 +1,35 @@
 # Verification scope
 
+## 0.5.0 URL-only installation approval
+
+The candidate pins the shared approval helper and real broker fixtures to
+`matuto-ai/psst@72f5d2d1b834e02cfb6b2f7dc11c6f1a55729344`. Source preparation
+does not imply that this dependency or connector version has been released.
+
+On Node 24.19.0, syntax checks and 54 unit tests passed; the integration aggregate
+passed 22 tests with only the unavailable Docker gate skipped. The cleaned legacy
+pairing fixture was rerun separately: 10 passed. Focused approval tests exercise actual HTTPS issuance, operator
+form login and CSRF approval, durable pending restart without another POST, lost
+POST response reconciliation, cancellation during new registration, and 30
+concurrent pending native hosts with independent IDs. Three consecutive repetitions
+of the 30-host case passed after the local selection contention fix. Deterministic
+barriers cover old stop, new registration, pre-selection and selection backoff,
+including rollback and explicit disconnect.
+
+Official Claude 2.1.310 validates the plugin/marketplace (only missing-icon warning)
+and its real `--init-only` process demonstrates persisted native URL configuration
+interpolated into MCP, a matching native parent, and a supplied native session ID.
+This uses no login/model credentials. It is **not** an interactive configuration
+dialog or authenticated model/monitor acceptance test. The synthetic host reacts
+to real monitor notices in the transport fixture; it cannot prove delivery to a
+real Claude model.
+
+The dedicated container CI job rebuilds an isolated non-root fixture, requests
+approval, and recreates containers retaining only the config volume. It is skipped
+locally when Docker is unavailable; a green actual container job is required before
+claiming that gate.
+
+
 The historical baseline below covers cooperative 0.2.1. The new native monitor
 prototype has additional bounded-notice tests and an explicit authenticated
 validation gap documented in [automatic-delivery.md](automatic-delivery.md).

@@ -25,6 +25,16 @@ export function saveSelection(connectionFile,expectedRevision,root=installationR
  // Revalidate private file and, where marked, strict enrollment receipt. Never copy credentials.
  const config=readPluginConfig(connectionFile);
  if(expectedConfig&&JSON.stringify(config)!==JSON.stringify(expectedConfig))return {saved:false,reason:'installation_config_changed'};
+ return withInstallationLock(root,()=>{
+  const current=readSelection(root);
+  if(current?.connection_file===connectionFile)return {saved:true,revision:current.revision};
+  if((current?.revision??null)!==expectedRevision)return {saved:false,reason:'installation_selection_changed'};
+  const revision=randomUUID();
+  writePrivateJson(join(root,'selected-installation.json'),{format:'psst-selected-installation-v1',revision,connection_file:connectionFile});
+  return {saved:true,revision};
+ });
+}
+export function withInstallationLock(root,operation){
  privateDirectory(root);
  const lockPath=join(root,'.selection-owner.sqlite');let lock;
  const fd=openSync(lockPath,constants.O_RDWR|constants.O_CREAT|constants.O_NOFOLLOW,0o600);
@@ -32,12 +42,7 @@ export function saveSelection(connectionFile,expectedRevision,root=installationR
  try{
   lock=new DatabaseSync(lockPath);
   try{lock.exec('PRAGMA journal_mode=DELETE; BEGIN EXCLUSIVE;');}catch{throw Error('installation_selection_busy');}
-  const current=readSelection(root);
-  if(current?.connection_file===connectionFile)return {saved:true,revision:current.revision};
-  if((current?.revision??null)!==expectedRevision)return {saved:false,reason:'installation_selection_changed'};
-  const revision=randomUUID();
-  writePrivateJson(join(root,'selected-installation.json'),{format:'psst-selected-installation-v1',revision,connection_file:connectionFile});
-  return {saved:true,revision};
+  return operation();
  }finally{lock?.close();}
 }
 

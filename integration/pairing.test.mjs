@@ -13,7 +13,7 @@ import {Inbox,newSessionIdentity} from '../vendor/psst/reference/inbox.mjs';
 import {BrokerClient} from '../vendor/psst/reference/client.mjs';
 import {pluginHook} from '../src/plugin-state.mjs';
 import {processIdentity} from '../src/launch-state.mjs';
-for(const scenario of ['native-setup','native-disconnect','normal','broker-mismatch','persistent-store','auto-resume-race','disconnect','eof','sessionend','registration-disconnect','resume-marker','resume-receipt'])test(`private pairing TLS fixture: ${scenario}`,  {timeout:30000},async t=>{
+for(const scenario of ['normal','broker-mismatch','persistent-store','auto-resume-race','disconnect','eof','sessionend','registration-disconnect','resume-marker','resume-receipt'])test(`private pairing TLS fixture: ${scenario}`,  {timeout:30000},async t=>{
  const root=mkdtempSync(join(tmpdir(),'claude-pairing-tls-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
  const resumeGate=join(root,'resume-gate'),resumeTick=join(root,'resume-tick'),preload=join(root,'clock.mjs');
  if(scenario==='auto-resume-race')writeFileSync(preload,`import {existsSync,writeFileSync} from 'node:fs';
@@ -36,27 +36,26 @@ for(const scenario of ['native-setup','native-disconnect','normal','broker-misma
    return handler(req,res);
   }
   const grant=grants.get(req.headers.authorization);assert(grant);let raw='';for await(const c of req)raw+=c;
-  if(scenario!=='registration-disconnect')startedIssuance();if(['native-disconnect','disconnect','eof','sessionend'].includes(scenario))await issuanceGate;
+  if(scenario!=='registration-disconnect')startedIssuance();if(['disconnect','eof','sessionend'].includes(scenario))await issuanceGate;
   const input=JSON.parse(raw);assert.equal(input.client_type,'claude-code');assert.match(input.token_sha256,/^[0-9a-f]{64}$/);
   if(!grant.response){const id=`enrolled-${randomUUID()}`,adapter=`installation-${randomUUID()}`;grant.request=input;grant.response={credential_id:id,adapter_id:adapter,client_type:'claude-code',scopes:['default'],expires_at:new Date(Date.now()+3600000).toISOString(),protocol_version:'1'};issued.push({credential_id:id,token_sha256:input.token_sha256,principal_id:'fixture-owner',adapter_id:adapter,client_types:['claude-code'],scopes:['default']});f.writeCreds([f.a.entry,f.b.entry,f.c.entry,...issued]);}else assert.deepEqual(input,grant.request);
   res.writeHead(201,{'Content-Type':'application/json'});res.end(JSON.stringify(grant.response));
  });
  const pairfiles=[];for(let i=0;i<2;i++){const secret=randomBytes(32).toString('base64url');grants.set(`Pairing ${secret}`,{});const path=join(root,`pair${i}.json`);writeFileSync(path,JSON.stringify({format:'psst-pairing-v1',broker_url:url,pairing_secret:secret,client_type:'claude-code',expires_at:new Date(Date.now()+60000).toISOString()}),{mode:0o600});pairfiles.push(path);}
- const nativeSecret=JSON.parse(readFileSync(pairfiles[0])).pairing_secret;
- const durable=scenario==='persistent-store'||scenario==='native-setup';
+ const durable=scenario==='persistent-store';
  const peerInbox=new Inbox({directory:join(root,'peer'),identity:newSessionIdentity('pi')});t.after(()=>peerInbox.close());const token=join(root,'peer-token');writeFileSync(token,f.a.token,{mode:0o600});const peer=new BrokerClient({url,tokenFile:token,caFile:cert,inbox:peerInbox});await peer.register({name:'peer',model:{provider:null,id:null,source:'unknown'},project:null});
  const sessionId=randomUUID(),binding={stateRoot:join(root,'.config','psst','native')};pluginHook(binding,{hook_event_name:'SessionStart',session_id:sessionId},processIdentity(process.pid));
  let child,ended,call,stdout,stderr;
  let selectedHome=root;const durableConfig=join(root,'durable-claude');
  async function start(){
- child=spawn(process.execPath,[...scenario==='auto-resume-race'?['--import',preload]:[],'bin/plugin-mcp.mjs'],{env:{...process.env,HOME:selectedHome,PSST_CLAUDE_CONFIG:durable?'':join(root,'absent'),PSST_CONFIG_FILE:'',NODE_EXTRA_CA_CERTS:cert,...(durable?{CLAUDE_CONFIG_DIR:durableConfig}:{}),...(scenario.startsWith('native-')?{PSST_PLUGIN_BROKER_URL:url,PSST_PLUGIN_PAIRING_SECRET:nativeSecret}:{}),...(scenario==='broker-mismatch'?{PSST_PLUGIN_BROKER_URL:'https://wrong-broker.invalid'}:{})},stdio:['pipe','pipe','pipe']});t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});ended=new Promise(r=>child.once('exit',r));stdout='';stderr='';let buffer='',id=0;const waiters=new Map();child.stderr.on('data',c=>stderr+=c);child.stdout.on('data',c=>{stdout+=c;buffer+=c;while(buffer.includes('\n')){const n=buffer.indexOf('\n'),r=JSON.parse(buffer.slice(0,n));buffer=buffer.slice(n+1);waiters.get(r.id)?.(r);waiters.delete(r.id);}});
+ child=spawn(process.execPath,[...scenario==='auto-resume-race'?['--import',preload]:[],'bin/plugin-mcp.mjs'],{env:{...process.env,HOME:selectedHome,PSST_CLAUDE_CONFIG:durable?'':join(root,'absent'),PSST_CONFIG_FILE:'',NODE_EXTRA_CA_CERTS:cert,...(durable?{CLAUDE_CONFIG_DIR:durableConfig}:{}),...(scenario==='broker-mismatch'?{PSST_PLUGIN_BROKER_URL:'https://wrong-broker.invalid'}:{})},stdio:['pipe','pipe','pipe']});t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});ended=new Promise(r=>child.once('exit',r));stdout='';stderr='';let buffer='',id=0;const waiters=new Map();child.stderr.on('data',c=>stderr+=c);child.stdout.on('data',c=>{stdout+=c;buffer+=c;while(buffer.includes('\n')){const n=buffer.indexOf('\n'),r=JSON.parse(buffer.slice(0,n));buffer=buffer.slice(n+1);waiters.get(r.id)?.(r);waiters.delete(r.id);}});
  const ask=(method,params)=>new Promise(r=>{const next=++id;waiters.set(next,r);child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');});
  await ask('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'fixture',version:'0'}});child.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');
  call=async(name,args={})=>{const r=await ask('tools/call',{name,arguments:args});assert(!r.error,JSON.stringify(r));return JSON.parse(r.result.content[0].text);};
  }
  await start();
- if(['native-disconnect','disconnect','eof','sessionend','registration-disconnect'].includes(scenario)){
-  const pendingConnect=scenario==='native-disconnect'?call('broker_setup'):call('broker_connect',{connection_file:pairfiles[0]});await issuanceStarted;
+ if(['disconnect','eof','sessionend','registration-disconnect'].includes(scenario)){
+  const pendingConnect=call('broker_connect',{connection_file:pairfiles[0]});await issuanceStarted;
   if(!['eof','sessionend'].includes(scenario)){const stopped=await call('broker_disconnect');assert.equal(stopped.connected,false);assert.equal(stopped.pending_connection_cancelled,true);}else if(scenario==='eof')child.stdin.end();else pluginHook(binding,{hook_event_name:'SessionEnd',session_id:sessionId},processIdentity(process.pid));
   releaseIssuance();
   if(!['eof','sessionend'].includes(scenario)){assert.equal((await pendingConnect).error.code,'connection_cancelled');assert.equal((await call('broker_identity')).error.code,'not_connected');if(scenario==='registration-disconnect'){const retry=await call('broker_connect',{connection_file:pairfiles[0]});assert(retry.client_id,JSON.stringify(retry));await call('broker_disconnect');}child.stdin.end();}
@@ -68,8 +67,7 @@ for(const scenario of ['native-setup','native-disconnect','normal','broker-misma
   const rejected=await call('broker_connect',{connection_file:pairfiles[0]});assert.equal(rejected.error.effect,'not_applied');assert.equal(issued.length,0);assert([...grants.values()].every(grant=>!grant.response));
   child.stdin.end();assert.equal(await ended,0,stderr);return;
  }
- if(scenario==='native-setup'){await delay(400);assert.equal(issued.length,0);assert.equal((await call('broker_identity')).error.code,'not_connected');}
- const first=scenario==='native-setup'?await call('broker_setup'):await call('broker_connect',{connection_file:pairfiles[0]});assert(first.client_id,JSON.stringify(first));assert(first.credential_id);
+ const first=await call('broker_connect',{connection_file:pairfiles[0]});assert(first.client_id,JSON.stringify(first));assert(first.credential_id);
  if(durable){
   const selected=JSON.parse(readFileSync(join(durableConfig,'psst','selected-installation.json')));
   assert(selected.connection_file.startsWith(join(durableConfig,'psst','enrollment')+'/'));
@@ -79,7 +77,6 @@ for(const scenario of ['native-setup','native-disconnect','normal','broker-misma
   pluginHook(newBinding,{hook_event_name:'SessionStart',session_id:newSession},processIdentity(process.pid));
   await start();let auto;for(let i=0;i<100;i++){auto=await call('broker_identity');if(auto.client_id)break;await delay(25);}
   assert(auto.client_id,JSON.stringify(auto));assert.notEqual(auto.client_id,first.client_id);assert.equal(auto.credential_id,first.credential_id);assert.equal(issued.length,1);
-  if(scenario==='native-setup'){assert(!stdout.includes(nativeSecret));assert(!stderr.includes(nativeSecret));assert.equal((await call('broker_setup')).error.code,'disconnect_before_pairing');}
   pluginHook(newBinding,{hook_event_name:'SessionEnd',session_id:newSession},processIdentity(process.pid));assert.equal(await ended,0,stderr);return;
  }
  if(scenario.startsWith('resume-')){

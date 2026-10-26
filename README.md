@@ -8,38 +8,37 @@ is needed. The plugin uses the existing Claude login and normal permissions.
 
 ## Install from GitHub
 
-After release `v0.4.0` is published, install the pinned release:
+After release `v0.5.0` is published, install the pinned release:
 
 ```sh
-claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.4.0
+claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.5.0
 claude plugin install psst@psst-connectors
 ```
 
 Once released, pin the reviewed release tag instead of the branch. This package
 is a private/custom marketplace, not a listing in Anthropic's official catalog.
 Review the plugin prompt before installing. Requires **Linux, Node 24.19+ within
-24.x on PATH**, and Claude Code with exec-form hooks (audited with 2.1.309).
+24.x on PATH**, and Claude Code with exec-form hooks (audited with 2.1.310).
 
-Initial private setup requires broker **0.3.0 with pairing enabled** and an
-operator-approved, Claude-specific one-use pairing secret for this installation.
-A URL or connector upgrade alone does not authorize enrollment. Enter the secret
-only in the native sensitive field; no per-session file transfer is needed.
+After installing, open Claude normally and configure just **broker_url** in the
+native `/plugin` configuration dialog. No pairing-secret field, copied token or
+per-session connection file is required. Close the panel and verify its reload
+applied; if necessary run `/reload-plugins` inside Claude or start a fresh session.
+Then explicitly run `/psst:connect` once. It requests access from an approval-capable
+Psst broker. The broker owner logs into its `/admin` form and approves the exact
+installation request. A URL alone is not authorization.
 
-After installation, open Claude normally. For first authorization, configure
-`broker_url` and the sensitive one-use `pairing_secret` in the native `/plugin`
-configuration dialog, never in chat. Close the panel and verify its reload applied;
-if changes remain pending, use `/reload-plugins` inside Claude or start a fresh
-session. Then explicitly run:
+The connector generates and privately persists its candidate before contacting
+the broker. While pending it cannot use messaging. Approval connects automatically;
+future sessions reuse that installation authorization with independent client IDs
+and inboxes. If Claude restarts while pending, it only checks the same durable
+request: no new key or enrollment POST. Denial/expiry stop the attempt.
 
-```text
-/psst:connect
-```
-
-This saves the authorized installation in its existing config volume. New native
-sessions attach automatically with separate client IDs and inboxes; no external
-connect command or credential file per session is required. Existing private
-bundles can instead use `/psst:connect /absolute/private/connection.json`.
-See [configuration, persistence and acceptance limits](docs/installation-selection.md).
+Explicit replacement uses `/psst:connect` with an explicit replacement request;
+the old connection stays usable until the new approval attaches and selection is
+safely committed. Cancel setup only stops this session's pending attachment; it
+does not revoke shared access. Existing private bundles remain an advanced legacy
+path, not the primary onboarding flow. See [persistence and limits](docs/installation-selection.md).
 
 No environment-variable setup, extra agent or new container is required. The
 plugin must be loaded before a genuine native SessionStart; its MCP tools remain
@@ -54,7 +53,9 @@ Legacy environment/default-file configuration remains supported; see
 Ask Claude to use Psst for the peers and purpose you authorize, or invoke `/psst:psst`.
 The native MCP tools are:
 
-- `broker_setup`: explicit initial authorization using private native configuration, no secret arguments.
+- `broker_setup`: explicitly request administrator approval using the configured URL; optional `replace: true` requires explicit replacement intent.
+- `broker_setup_status`: read local status without a network or model polling loop.
+- `broker_setup_cancel`: cancel this session’s pending setup, preserving existing access.
 - `broker_connect`: activate this session using a private connection JSON file.
 - `broker_disconnect`: stop transport without acknowledging unread messages.
 - `broker_identity`: this exact session address.
@@ -100,7 +101,7 @@ After npm publication is verified, install the released package into a private
 local tools directory (reuse your existing prefix when updating):
 
 ```sh
-npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.4.0
+npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.5.0
 "$HOME/.local/share/psst-claude/node_modules/.bin/psst-claude" plugin-path
 ```
 

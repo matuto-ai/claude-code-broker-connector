@@ -11,7 +11,7 @@ try {
  if(!Number.isSafeInteger(pid)||pid<1||!sessionId)throw Error('native_monitor_context_missing');
  const host=processIdentity(pid),candidates=[];
  try{candidates.push(hostDirectory(readPluginConfig(),host).directory);}catch{}
- candidates.push(hostDirectory(nativeStateConfig(),host).directory);
+ candidates.push(hostDirectory(nativeStateConfig(process.env,host,sessionId),host).directory);
  let expected,directory;
  // Native always-start monitors may precede the SessionStart hook. Wait only for
  // this exact native owner/session; never create a binding or infer another one.

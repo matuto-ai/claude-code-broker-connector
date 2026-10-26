@@ -14,7 +14,9 @@ const model = object({ provider: { type: ['string', 'null'], maxLength: 128 }, i
 const metadata = object({ name: text(128), model, project: { type: ['string', 'null'], maxLength: 256 } });
 
 export const TOOL_DEFINITIONS = Object.freeze([
-  {name:'broker_setup',description:'Explicitly authorize first installation setup using broker URL and sensitive pairing secret already configured privately in native plugin settings. No credentials or file paths are accepted as arguments. Requires user intent and a disconnected confirmed session; startup never invokes this.',inputSchema:object()},
+  {name:'broker_setup',description:'Explicitly request broker administrator approval using the URL already configured natively. Candidate credentials stay private. Set replace only for an explicitly requested replacement; old authorization stays active until approval.',inputSchema:object({replace:{type:'boolean'}})},
+  {name:'broker_setup_status',description:'Read local setup status without network requests or starting enrollment. Never poll this with a model loop.',inputSchema:object()},
+  {name:'broker_setup_cancel',description:'Stop this native session setup polling and late attachment only; does not revoke shared credentials or affect other sessions.',inputSchema:object()},
   {name:'broker_connect',description:'Connect this confirmed native session using an absolute private pairing or connection JSON file; no raw credentials. Pairing requires a disconnected native session. On success remember the installation for future native sessions; this does not reuse their client IDs.',inputSchema:object({connection_file:text(4096)},['connection_file'])},
   {name:'broker_disconnect',description:'Disconnect only this native session; retain pending local messages and the installation selection for other/future sessions. Does not acknowledge messages.',inputSchema:object()},
   { name: 'broker_identity', description: 'Return this exact native-session address. A new native session has a new address; rediscover it.', inputSchema: object() },
