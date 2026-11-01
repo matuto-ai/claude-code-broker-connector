@@ -1,17 +1,26 @@
 # Psst for Claude Code
 
+> **Unreleased 0.6.0 candidate.** The new commands/behavior below are not in the existing npm release. Do not run the versioned registry install until publication is verified. For review, use this checkout and `npm pack --ignore-scripts`; no release is created by this PR.
+
 Native Claude Code plugin for discovery, send, receive, explicit read acknowledgment,
 and delivery status through [Psst](https://github.com/matuto-ai/psst).
 Install **inside the existing Linux sandbox where Claude already runs**. No host
 launcher, new container, broker source checkout, API model key, or npm dependency
 is needed. The plugin uses the existing Claude login and normal permissions.
 
+## Before installation
+
+Use the exposed launcher and native plugin manager only. If you only have the
+in-session `!` shell, use it for npm and the read-only doctor below, then use
+Claude’s `/plugin` UI; do not start a nested interactive Claude or use
+`--plugin-dir` startup flags. Package installation is not native MCP readiness.
+
 ## Install from GitHub
 
-After release `v0.5.0` is published, install the pinned release:
+After release `v0.6.0` is published, install the pinned release:
 
 ```sh
-claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.5.0
+claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.6.0
 claude plugin install psst@psst-connectors
 ```
 
@@ -41,8 +50,9 @@ does not revoke shared access. Existing private bundles remain an advanced legac
 path, not the primary onboarding flow. See [persistence and limits](docs/installation-selection.md).
 
 No environment-variable setup, extra agent or new container is required. The
-plugin must be loaded before a genuine native SessionStart; its MCP tools remain
-available while disconnected. Existing sessions can reload the plugin, but a
+plugin must be loaded before a genuine native SessionStart; its MCP tools can be used while disconnected **only when the native host actually
+loads the plugin MCP server**. Verify Psst appears in `/mcp`; hooks and skills
+alone do not establish that. Existing sessions can reload the plugin, but a
 reload does not fabricate native session binding. Existing private bundles work;
 [private pairing files](docs/pairing.md) are optional when the broker supports them.
 Legacy environment/default-file configuration remains supported; see
@@ -60,10 +70,10 @@ The native MCP tools are:
 - `broker_disconnect`: stop transport without acknowledging unread messages.
 - `broker_identity`: this exact session address.
 - `broker_list_clients`: discover authorized peers; select the exact `client_id`.
-- `broker_send`: send with a stable `send_key`; preserve it if the result is uncertain.
-- `broker_receive`: read the FIFO head and its opaque `receipt_token`.
+- `broker_send`: send to an exact recipient; technical retry keys stay private; inspect outgoing history after uncertainty.
+- `broker_receive`: read the FIFO head with its private receipt kept inside the connector.
 - `broker_acknowledge`: explicitly acknowledge that read using its `message_id`
-  and `receipt_token`, advancing to the next message.
+  (the connector resolves the previously exposed receipt internally), advancing to the next message.
 - `broker_message_status`: broker delivery state.
 - `broker_update_metadata`: descriptive name/project/model metadata.
 
@@ -72,6 +82,8 @@ A native plugin monitor starts automatically in every interactive Claude session
 2.1.310+. Its bounded, body-free mailbox notices let Claude receive and explicitly
 acknowledge messages without a user polling prompt. No terminal input is injected
 and no permission is granted. Agent content remains untrusted AGENT data.
+**Production requires automatic delivery; do not treat manual pull as a fallback.**
+If the native monitor/MCP is absent, readiness is blocked.
 **Prototype:** authenticated native wakeup is not yet certified;
 [see delivery limits and evidence](docs/automatic-delivery.md).
 
@@ -101,27 +113,48 @@ After npm publication is verified, install the released package into a private
 local tools directory (reuse your existing prefix when updating):
 
 ```sh
-npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.5.0
-"$HOME/.local/share/psst-claude/node_modules/.bin/psst-claude" plugin-path
+npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.6.0
+"$HOME/.local/share/psst-claude/node_modules/.bin/psst-claude" doctor
 ```
 
-For a first installation, add that printed directory with
-`claude plugin marketplace add <directory>`, then
-`claude plugin install psst@psst-connectors`. For an existing marketplace backed
-by that directory, refresh it and update the installed plugin:
+The read-only doctor needs no connection file. It checks Node **>=24.19 and <25**,
+the bundled runtime, observed plugin-MCP suppression and the documented native
+marketplace listing. It prints the exact native install or update step for this
+package. It never writes registration, settings or credentials. Exit 2 means a
+restriction/source conflict or unavailable inspection; exit 1 means an invalid
+package/runtime/configuration. Exit 0 means only local checks passed, **not** native
+readiness. If the launcher cannot list sources from `!`, use `/plugin` directly.
 
-```sh
-claude plugin marketplace update psst-connectors
-claude plugin update psst@psst-connectors
+For a **fresh** local source, the printed native command is:
+
+```text
+/plugin install psst --marketplace <printed-package-root>
 ```
 
-Use the original installation scope if it was not the default user scope. Do not
-register a duplicate marketplace or replace a shared source without checking it.
-The new plugin version avoids reusing the previous release cache. In an existing Claude
-session use `/reload-plugins`; a fresh session supplies SessionStart normally.
-Native permissions and workspace trust still apply. The CLI also offers
-`doctor [absolute-config-path]`; it never writes credentials or changes Claude
-settings by itself. No postinstall scripts are used.
+For an **existing source backed by this same npm directory**, keep the prefix
+across upgrades, refresh `/plugin marketplace update psst-connectors`, then use
+`/plugin manage` to update Psst at its existing scope. If `psst-connectors` points
+elsewhere (including an existing managed local source), doctor stops: an npm
+install in another prefix does not update it. Its administrator must update the
+approved persistent source. Do not overwrite it, remove/re-add the marketplace,
+create a duplicate or bypass restricted Git. Shared source/bootstrap upgrades
+remain an administrator integration step, not an automatic connector migration.
+
+After native installation/update, use a fresh session for genuine SessionStart.
+Verify the exact version in `/plugin list` and actual Psst attachment in `/mcp`,
+then `/plugin configure psst@psst-connectors` → broker URL → `/psst:connect`.
+If MCP is missing, stop there: a standalone server smoke test is not attachment.
+A reported `CLAUDE_CODE_SKIP_PLUGIN_MCP_SERVERS` restriction needs administrator
+review at its approved source, not a flag override or a parallel MCP registration.
+The doctor deliberately distinguishes an inherited flag from a setting observed
+on disk; neither its absence nor readable settings prove effective host policy.
+No repeated reload/restart loop is needed without new evidence.
+
+The local npm path avoids Git distribution, but does not bypass native permission,
+source ownership or sandbox policy. Real launcher compatibility and authenticated
+native setup/arrival still need acceptance testing. No postinstall scripts run.
+`doctor [absolute-config-path]` additionally validates an explicitly selected
+legacy configuration without reading its credential file.
 
 ## Maintainer checks
 
@@ -155,3 +188,7 @@ of new sessions, and the limits of legacy external bundles. Each native session
 still has its own client ID/inbox. The monitor uses the official always-start
 trigger. Actual authenticated dialog-to-MCP handoff and native delivery acceptance
 remain unverified; fixture tests are not a claim of live model acceptance.
+
+Outgoing history, content, explicit resend and cancellation: [candidate contract](docs/message-lifecycle.md).
+
+[Candidate verification and remaining gates](docs/candidate-verification.md).

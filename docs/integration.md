@@ -61,8 +61,8 @@ remain for operator inspection; do not copy them into another live session.
 
 1. Enroll/configure both clients and restart their native sessions.
 2. In Claude ask for `broker_identity`, then `broker_list_clients`.
-3. Select the other client's exact UUID. Send a short test with a unique stable
-   `send_key`. Do not select by a duplicate display name alone.
+3. Select the other client's exact UUID. Send a short test; the connector generates its stable
+   technical retry keys privately; no model key argument is accepted. Do not select by a duplicate display name alone.
 4. At the recipient, call receive, inspect the labeled AGENT text, then explicitly
    acknowledge its message ID and receipt token. Call receive again to verify FIFO
    advancement. Ask for a reply to the original Claude UUID.
@@ -73,6 +73,19 @@ Ordinary native MCP approval prompts are for the human to handle. If a tool resp
 is uncertain, preserve operation identifiers rather than sending a new operation.
 
 ## Troubleshooting and uninstall
+
+- Skills/hooks loaded but no Psst in `/mcp`: native MCP attachment is missing,
+  regardless of enabled version or a successful standalone MCP smoke test.
+  `psst-claude doctor` is read-only, requires no connection file and checks known
+  suppression plus marketplace source conflicts. It never certifies native readiness.
+- Observed `CLAUDE_CODE_SKIP_PLUGIN_MCP_SERVERS`: ask the sandbox administrator to
+  review the approved launcher/settings source. Do not unset a managed flag, add
+  another MCP entry or switch binary/identity. Disk configuration and the inherited
+  process environment are reported separately; current native policy may differ.
+- Existing marketplace points to another source: preserve its registration, scope
+  and persistent data. A separate npm prefix cannot upgrade it. Ask the source owner
+  for a supported upgrade; no manual copying or destructive remove/re-add.
+
 
 - `psst_hook_unavailable`: private config path, Node version/PATH, directory/file
   permissions, or unsupported native parent relationship. Restart after fixing it.

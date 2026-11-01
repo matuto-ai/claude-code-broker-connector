@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createToolScope } from '../src/tool-scope.mjs';
 import { installationRoot, readSelection, selectedConfig, saveSelection, configuredBrokerUrl, enforceConfiguredBroker } from '../src/installation-selection.mjs';
 import { connectPairingFile } from '../src/enrollment-support.mjs';
 import {switchApproved} from '../src/approval-attachment.mjs';
@@ -12,7 +13,7 @@ import { readPrivateJson, writePrivateJson, privateDirectory } from '../src/laun
 import { verifyReference } from '../src/reference-pin.mjs';
 import { readPluginConfig, nativeStateConfig, hostDirectory, readBinding, verifyBinding, bindingModel, journalName, refreshEnrollment } from '../src/plugin-state.mjs';
 
-let server,runtime,inbox,timer,live=true,expected,directory,host,tools,connected=false,connecting=false,disabled=false,generation=0,autoAttempted=false;
+let toolScope,connectionAbort,recoveryPromise,server,runtime,inbox,timer,live=true,expected,directory,host,tools,connected=false,connecting=false,disabled=false,generation=0,autoAttempted=false;
 let legacyConfig=null,connectedConfig=null,lastNotice=null,lastNoticeAt=0,approvalSession=null,setupContext=null,approvalTransition=null;
 const failure=(code,effect='not_applied')=>({error:{code,retryable:true,effect}});
 const bound=()=>live&&expected&&verifyBinding(directory,expected);
@@ -29,7 +30,7 @@ function monitorAttention(){
  try{const s=readPrivateJson(join(directory,'monitor-state.json'));if(s.sessionId===expected.sessionId&&s.lifetime===expected.lifetime&&s.pending_id===(inbox?.head()?.message_id??null)&&Date.now()-s.updated_at>=0&&Date.now()-s.updated_at<5000)return {attention_required:s.attention_required===true,rate_limited:s.rate_limited===true,next_retry_at:s.next_retry_at};}catch{}
  return {state:'not_observed'};
 }
-async function stop(closeSession){connected=false;status();await runtime?.stop({closeSession});inbox?.close();runtime=null;inbox=null;tools=null;}
+async function stop(closeSession){connected=false;status();connectionAbort?.abort();await toolScope?.close();await recoveryPromise?.catch(()=>{});recoveryPromise=null;await runtime?.stop({closeSession});inbox?.close();runtime=null;inbox=null;tools=null;}
 try {
  const root=dirname(dirname(fileURLToPath(import.meta.url)));verifyReference(join(root,'vendor','psst'));
  const [{Inbox,newSessionIdentity},{BrokerClient},{AdapterRuntime},{createTools},{createCooperativeInbox},{serveStdio}]=await Promise.all([
@@ -60,18 +61,22 @@ try {
    const identityFile=join(journal,'identity.json');
    try{writeFileSync(identityFile,JSON.stringify(newSessionIdentity('claude-code'))+'\n',{mode:0o600,flag:'wx'});}catch(e){if(e.code!=='EEXIST')throw e;}
    const identity=readPrivateJson(identityFile);inbox=new Inbox({directory:journal,identity});
+   connectionAbort=new AbortController();toolScope=createToolScope();
    const client=new BrokerClient({url:config.brokerUrl,tokenFile:config.tokenFile,caFile:config.caFile,insecureDevelopment:config.insecureDevelopment===true,inbox});
    runtime=new AdapterRuntime({client,inbox,verifySession:bound,isAlive:bound,onDiagnostic:({code})=>{if(['unauthenticated','forbidden','session_closed'].includes(code)){connected=false;status();}process.stderr.write(`psst_${code}\n`);}});
    tools={...createTools({client,inbox,observeMetadata:()=>({model:bindingModel(readBinding(directory))})}),...createCooperativeInbox({inbox,isActive:active}),
-    broker_identity:async()=>({credential_id:config.enrollment?.credentialId??null,credential_expires_at:config.enrollment?.expiresAt??null,monitor_attention:monitorAttention(),client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'cooperative_read_with_bounded_monitor_notices',automatic_wakeup:'bounded_monitor_when_interactive',native_acceptance_recorded:false})};
+    broker_identity:async()=>({credential_id:config.enrollment?.credentialId??null,credential_expires_at:config.enrollment?.expiresAt??null,monitor_attention:monitorAttention(),client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,mode:'automatic_required',local_mode:'native_monitor_delivery',readiness:monitorAttention().state==='not_observed'?'blocked_monitor_not_observed':'native_wakeup_acceptance_unverified',automatic_wakeup:'bounded_monitor_when_interactive',native_acceptance_recorded:false})};
    await runtime.start({name:config.name,project:config.project??null,model:bindingModel(expected)});
+   if(!bound()||generation!==epoch||disabled||!validIntent())throw Error('session_changed');
+   recoveryPromise=client.recoverOutgoing({limit:10,signal:AbortSignal.any([connectionAbort.signal,AbortSignal.timeout(5000)])});
+   await recoveryPromise.catch(()=>{});
    if(!bound()||generation!==epoch||disabled||!validIntent())throw Error('session_changed');connected=true;connectedConfig=config;disabled=false;writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:false,config});status();return tools.broker_identity();
   }catch{await stop(!bound());return failure(generation!==epoch?'connection_cancelled':'connection_failed','unknown');}finally{connecting=false;}
  }
- const names=['broker_list_clients','broker_send','broker_update_metadata','broker_message_status','broker_receive','broker_acknowledge','broker_identity'];
- const guarded=Object.fromEntries(names.map(name=>[name,async args=>{
+ const names=['broker_list_clients','broker_send','broker_update_metadata','broker_message_status','broker_receive','broker_acknowledge','broker_identity','broker_sent_history','broker_message_content','broker_resend','broker_cancel'];
+ const guarded=Object.fromEntries(names.map(name=>[name,async (args,context)=>{
   if(!active())return failure(expected?'not_connected':'session_binding_unavailable');
-  const result=await tools[name](args);status();return result;
+  return toolScope.run(async signal=>{const result=await tools[name](args,{...context,signal});status();return result;},context?.signal);
  }]));
  let pairing=false;
  const explicitConnect=async({connection_file})=>{
@@ -152,11 +157,12 @@ try {
    return {...failure(error.retryable?'approval_temporarily_unavailable':'approval_setup_blocked',error.effect??'not_applied'),...(Number.isFinite(error.retryAfterMs)?{retry_after_ms:Math.max(1000,Math.min(300000,error.retryAfterMs))}:{})};
   }
  };
+ const deliveryReadiness=()=>({mode:'automatic_required',readiness:monitorAttention().state==='not_observed'?'blocked_monitor_not_observed':'native_wakeup_acceptance_unverified',manual_receive:'diagnostic_test_only'});
  guarded.broker_setup_status=async()=>{
-  if(approvalSession.status.state!=='not_started')return {...approvalSession.status};
-  try{const context=readSetupContext();if(!context)return {state:active()?'connected':'setup_required',connected:!!active()};
-   const saved=readApprovalState(setupOptions(context.broker_url));return saved?{state:saved.state,requestId:saved.requestId,requestExpiresAt:saved.requestExpiresAt,connected:!!active()}:{state:'setup_required',connected:!!active()};
-  }catch{return {state:'blocked',error:'invalid_saved_setup',connected:!!active()};}
+  if(approvalSession.status.state!=='not_started')return {...approvalSession.status,...deliveryReadiness()};
+  try{const context=readSetupContext();if(!context)return {state:active()?'connected':'setup_required',connected:!!active(),...deliveryReadiness()};
+   const saved=readApprovalState(setupOptions(context.broker_url));return saved?{state:saved.state,requestId:saved.requestId,requestExpiresAt:saved.requestExpiresAt,connected:!!active(),...deliveryReadiness()}:{state:'setup_required',connected:!!active(),...deliveryReadiness()};
+  }catch{return {state:'blocked',error:'invalid_saved_setup',connected:!!active(),...deliveryReadiness()};}
  };
  guarded.broker_setup_cancel=async()=>{approvalSession.cancel();if(approvalTransition&&['stopping','attaching','selecting'].includes(approvalTransition.phase))generation++;if(expected)writePrivateJson(join(directory,'setup-activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,cancelled:true});return {state:'cancelled',existing_connection_retained:!!active()};};
  guarded.broker_disconnect=async()=>{approvalSession.cancel();autoAttempted=true;generation++;disabled=true;connected=false;if(expected)writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:true});status();if(connecting)void runtime?.stop({closeSession:false}).catch(()=>{});else await stop(false);return{connected:false,pending_connection_cancelled:connecting||pairing,pending_retained:true,native_acceptance_recorded:false};};
