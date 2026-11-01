@@ -25,7 +25,7 @@ await ask('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:
 let received;for(let n=0;n<100;n++){await delay(50);const r=await ask('tools/call',{name:'broker_receive',arguments:{}});if(r.result){const value=JSON.parse(r.result.content[0].text);if(value.message){received=value;break}}}
 if(!received)throw Error('fixture timed out');console.log(JSON.stringify({fixture:true,received}));await hook('SessionEnd');p.stdin.end();await mcpEnded;
 `, { mode: 0o700 }); chmodSync(fake, 0o700);
-  writeFileSync(config, JSON.stringify({ referenceRoot: process.env.BROKER_REFERENCE_DIR ?? resolve('../ai-agent-msg-broker'), stateRoot: directory, brokerUrl: broker.base, tokenFile: token, insecureDevelopment: true, name: 'same-name', claudeBinary: fake, expectedCliVersion: '0.0.0' }), { mode: 0o600 });
+  writeFileSync(config, JSON.stringify({ referenceRoot: process.env.BROKER_REFERENCE_DIR ?? resolve('vendor/psst'), stateRoot: directory, brokerUrl: broker.base, tokenFile: token, insecureDevelopment: true, name: 'same-name', claudeBinary: fake, expectedCliVersion: '0.0.0' }), { mode: 0o600 });
   const child = spawn(process.execPath, ['bin/launch.mjs', config], { stdio: ['ignore', 'pipe', 'pipe'] });
   t.after(() => { if (child.exitCode === null) child.kill('SIGTERM'); });
   let output = '', errors = ''; child.stdout.on('data', c => { output += c; }); child.stderr.on('data', c => { errors += c; });

@@ -40,3 +40,10 @@ test('private config and broker bundle are validated without reading credentials
  assert.equal(configPath({PSST_CONFIG_FILE:'/bundle',PSST_CLAUDE_CONFIG:'/override'}),'/override');
  assert.equal(configPath({PSST_CONFIG_FILE:'/bundle'}),'/bundle');
 });
+
+test('real SessionStart hook retains binding but reports suppressed MCP honestly',t=>{
+ const f=fixture(t);const output=pluginHook(f.config,{hook_event_name:'SessionStart',session_id:'suppressed'},f.host,{CLAUDE_CODE_SKIP_PLUGIN_MCP_SERVERS:'1'});
+ assert(verifyBinding(f.directory,readBinding(f.directory)));
+ assert.match(output.hookSpecificOutput.additionalContext,/Stop setup/);
+ assert.doesNotMatch(output.hookSpecificOutput.additionalContext,/broker tools are available/);
+});

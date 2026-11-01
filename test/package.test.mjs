@@ -21,7 +21,9 @@ test('packed native plugin installs without lifecycle scripts or sibling checkou
  const root=join(temp,'install/node_modules/@matuto-ai/claude-code-broker-connector');
  const help=spawnSync(process.execPath,[join(root,'bin/cli.mjs'),'--help'],{encoding:'utf8'});assert.equal(help.status,0,help.stderr);assert.match(help.stdout,/plugin-path/);
  const config=join(temp,'config.json');writeFileSync(config,JSON.stringify({brokerUrl:'https://broker.example.invalid',stateRoot:join(temp,'state'),tokenFile:join(temp,'not-created'),name:'test'}),{mode:0o600});
- const doctor=spawnSync(process.execPath,[join(root,'bin/cli.mjs'),'doctor',config],{encoding:'utf8'});assert.equal(doctor.status,0,doctor.stderr);
+ const doctor=spawnSync(process.execPath,[join(root,'bin/cli.mjs'),'doctor',config],{encoding:'utf8',env:{...process.env,HOME:temp,CLAUDE_CONFIG_DIR:temp}});assert([0,2].includes(doctor.status),doctor.stderr);
+ assert.match(doctor.stdout,/native_attachment_unverified|suppressed_in_process_environment|suppression_configured_effective_state_unverified/);
+ const freshDoctor=spawnSync(process.execPath,[join(root,'bin/cli.mjs'),'doctor'],{encoding:'utf8',env:{...process.env,HOME:temp,CLAUDE_CONFIG_DIR:temp}});assert([0,2].includes(freshDoctor.status),freshDoctor.stderr);assert.match(freshDoctor.stdout,/not_requested/);
  assert.match(doctor.stdout,/No network request/);assert(!existsSync(join(temp,'not-created')));
  const manifest=JSON.parse(readFileSync(join(root,'.claude-plugin/plugin.json')));assert.equal(manifest.name,'psst');assert.equal(manifest.version,sourcePackage.version);
  const marketplace=JSON.parse(readFileSync(join(root,'.claude-plugin/marketplace.json')));

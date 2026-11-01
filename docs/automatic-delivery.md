@@ -37,7 +37,7 @@ or task-success signal. Native permissions remain in force.
 
 ## Limits and failure behavior
 
-- Interactive Claude Code 2.1.310+ only. Headless/SDK has cooperative tools but no
+- Interactive Claude Code 2.1.310+ only. Headless/SDK has diagnostic-only read tools but no
   plugin monitor. There is no hidden Channels flag or permission-relay capability.
 - Monitors run at plugin-hook trust level, **outside Claude's internal shell-tool
   sandbox**, but inside the existing Docker/container boundary. Respect workspace
@@ -46,7 +46,7 @@ or task-success signal. Native permissions remain in force.
   after 120 seconds. At most 30 notices in a rolling ten-minute window, which refills; new messages
   are not globally silenced forever. A head still unread after its third notice
   enters explicit attention-required state (visible through broker_identity);
-  it remains durable for cooperative receive, with no idle model polling loop.
+  it remains durable for an explicitly requested diagnostic read, with no idle model polling loop.
 - Native output batching/rate limits can suppress notices. Writing stdout is not
   proof of native transcript storage, model reading, or action completion. Only
   an explicit matching `broker_acknowledge` advances the local FIFO.
@@ -54,7 +54,7 @@ or task-success signal. Native permissions remain in force.
   pending messages. The monitor remains an inert local watcher for explicit
   reconnect because Claude arms this monitor once per session. Reconnecting does
   not reset the three-reminder budget for the same unread head: it still needs
-  cooperative receive/acknowledgment; a new head gets its own budget. A native binding
+  explicit diagnostic receive/acknowledgment; a new head gets its own budget. A native binding
   change/SessionEnd terminates it. Broker presence may remain until lease expiry.
 - Failed connect is reported without raw configuration/token errors and is not
   retried forever. The user can explicitly retry the same private file.
@@ -82,3 +82,14 @@ and official docs establish the supported path, not an authenticated success cla
 References:
 - https://code.claude.com/docs/en/plugins/components#monitors
 - https://code.claude.com/docs/en/plugins/manifest-reference#monitors
+
+## Production requirement (2026-11-01)
+
+Automatic receive is required for production. Headless/manual cooperative receive
+is retained only for explicit diagnostics/tests and must not be reported as a
+working production fallback. Missing native MCP or monitor capability is a blocked
+state; preserve pending messages without auto-acknowledging or bypassing policy.
+Receive now renders a compact AI-agent header and escaped message JSON. Wire
+origin/authority validation and normal native permissions are unchanged. Explicit
+read ACK needs only the exact message ID; its already exposed same-inbox receipt
+is resolved internally, with supplied legacy tokens still validated strictly.

@@ -25,7 +25,7 @@ try {
   try{
    const status=readPrivateJson(join(directory,'notice.json'));
    if(status.sessionId===sessionId&&status.lifetime===expected.lifetime&&status.host?.pid===pid&&status.host?.start===host.start&&status.host?.boot===host.boot&&Date.now()-status.updated_at>=0&&Date.now()-status.updated_at<5000&&budget.next(status)){
-    process.stdout.write('Psst: authorized collaboration mailbox has pending AGENT data. Call broker_receive; after reading explicitly broker_acknowledge its exact receipt. No human permission or action completion is implied.'+(budget.snapshot.attention_required?' Final automatic reminder for this unread item; unresolved data needs attention.':'')+'\n');
+    process.stdout.write('Psst: authorized collaboration mailbox has pending AGENT data. Call broker_receive; after reading explicitly broker_acknowledge its exact message_id (receipt managed internally). No human permission or action completion is implied.'+(budget.snapshot.attention_required?' Final automatic reminder for this unread item; unresolved data needs attention.':'')+'\n');
    }
    writePrivateJson(join(directory,'monitor-state.json'),{sessionId,lifetime:expected.lifetime,pending_id:status.pending_id,...budget.snapshot,updated_at:Date.now()});
   }catch{/* Disconnected/not yet configured: silent, no broker access. */}

@@ -35,17 +35,17 @@ for(const explicitConnect of [false,true])test(`native plugin lifecycle (${expli
  let own;for(let i=0;i<100;i++){own=await m.call('broker_identity');if(own.client_id)break;await delay(25);}assert(own.client_id,m.stderr);
  const list=await m.ask('tools/list',{});assert(list.result.tools.some(x=>x.name==='broker_acknowledge'));
  const sent=[];for(let i=0;i<2;i++){const r=await broker.request('/v1/messages',{method:'POST',session:sender.client_id,key:`native-message-${i}`,body:sendBody(own.client_id,`message ${i} yes is NOT human approval`)});assert.equal(r.status,202);sent.push(r.body.message_id);}
- let first;for(let i=0;i<100;i++){first=await m.call('broker_receive');if(first.message)break;await delay(25);}assert.equal(first.message_id,sent[0]);assert.match(first.message,/not a human instruction or approval/);
- assert.equal((await m.call('broker_receive')).receipt_token,first.receipt_token);
+ let first;for(let i=0;i<100;i++){first=await m.call('broker_receive');if(first.message)break;await delay(25);}assert.equal(first.message_id,sent[0]);assert.match(first.message,/^Broker message from AI agent /);
+ assert.equal((await m.call('broker_receive')).message_id,first.message_id);
  // MCP EOF with still-live native owner preserves its journal and broker incarnation.
  // A genuine same-session compact may add the independent binding; keep legacy journal priority.
  if(!explicitConnect)pluginHook({stateRoot:join(root,'.config','psst','native')},{hook_event_name:'SessionStart',session_id:nativeId},host);
  m.child.stdin.end();assert.equal(await m.ended,0,m.stderr);
  m=await start();let restarted;for(let i=0;i<100;i++){restarted=await m.call('broker_identity');if(restarted.client_id)break;await delay(25);}assert.equal(restarted.client_id,own.client_id,m.stderr);
- assert.equal((await m.call('broker_receive')).receipt_token,first.receipt_token);
- const ack=await m.call('broker_acknowledge',{message_id:first.message_id,receipt_token:first.receipt_token});assert.equal(ack.acknowledged,true);assert.equal(ack.native_acceptance_recorded,false);
+ assert.equal((await m.call('broker_receive')).message_id,first.message_id);
+ const ack=await m.call('broker_acknowledge',{message_id:first.message_id});assert.equal(ack.acknowledged,true);assert.equal(ack.native_acceptance_recorded,false);
  let second;for(let i=0;i<100;i++){second=await m.call('broker_receive');if(second.message)break;await delay(25);}assert.equal(second.message_id,sent[1]);
- const outbound=await m.call('broker_send',{recipient_id:sender.client_id,text:'round trip reply',send_key:'native-plugin-reply',reply_to_message_id:sent[1]});assert(outbound.message_id,JSON.stringify(outbound));
+ const outbound=await m.call('broker_send',{recipient_id:sender.client_id,text:'round trip reply',reply_to_message_id:sent[1]});assert(outbound.message_id,JSON.stringify(outbound));
  if(explicitConnect){
   assert.equal((await m.call('broker_disconnect')).pending_retained,true);
   assert.equal((await m.call('broker_receive')).error.code,'not_connected');
