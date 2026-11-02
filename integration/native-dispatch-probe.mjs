@@ -41,7 +41,7 @@ try {
     const input=JSON.parse(body),route=req.url.split('?')[0];
     if(route==='/v1/messages/count_tokens'){res.writeHead(200,{'Content-Type':'application/json'});res.end('{"input_tokens":10}');return;}
     assert.equal(route,'/v1/messages');assert(++turns<=3,'bounded model fixture');
-    const supplied=input.tools?.find(t=>t.name.endsWith('__probe'));if(supplied){toolName=supplied.name;observedTool=true;}
+    const supplied=input.tools?.find(t=>t.name.endsWith('__probe'));if(supplied){assert.equal(supplied.name,toolName,'exact fixture tool alias');observedTool=true;}
     const results=input.messages.flatMap(m=>Array.isArray(m.content)?m.content:[]).filter(b=>b.type==='tool_result'&&b.tool_use_id==='toolu_fixture_dispatch');
     correlatedResult ||= results.length>0;
     if(results.length)toolResultSummary=JSON.stringify(results).slice(0,2000);
@@ -59,7 +59,7 @@ try {
    const version=await boundedRun(['--version'],env,dir);assert.equal(version.stdout.trim(),VERSION+' (Claude Code)');assert.equal(version.code,0);
    const args=['--plugin-dir',plugin,'--setting-sources','','-p','--output-format','json','--model','claude-sonnet-4-6','--max-turns','3','--tools',''];
    // Permissions apply only to this account-free disposable fixture, never the user's host.
-   if(mode==='deny')args.push('--disallowedTools','mcp__*');else args.push('--allowedTools','mcp__*');
+   if(mode==='deny')args.push('--disallowedTools',toolName);else args.push('--allowedTools',toolName);
    args.push('--','Perform the local fixture probe once.');
    const result=await boundedRun(args,env,dir);
    assert.equal(result.code,0,JSON.stringify({signal:result.signal,stderr:result.stderr.slice(-1500),stdout:result.stdout.slice(-1500)}));
