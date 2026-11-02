@@ -77,11 +77,14 @@ try {
  function binding(){return readBinding(hostDirectory(config,processIdentity(pid)).directory);}
  async function identity(label){
   for(let attempt=0;attempt<3;attempt++){
-   await prompt('Read the local Psst identity exactly once.',`identity-${label}-${attempt}`);
+   const {start}=await prompt('Read the local Psst identity exactly once.',`identity-${label}-${attempt}`);
    const call=calls.at(-1);assert(call&&call.phase===phase,'native host did not return correlated MCP result');
-   const content=call.result.content;const text=typeof content==='string'?content:content.filter(x=>x.type==='text').map(x=>x.text).join('\n');
+   // Parse the correlated native stream result, not the provider copy augmented with reminders.
+   const nativeResult=rows.slice(start).filter(r=>r.type==='user').flatMap(r=>Array.isArray(r.message?.content)?r.message.content:[]).filter(b=>b.type==='tool_result'&&b.tool_use_id===call.id);
+   assert.equal(nativeResult.length,1,'exactly one correlated native MCP result required');
+   const content=nativeResult[0].content;const text=typeof content==='string'?content:content.filter(x=>x.type==='text').map(x=>x.text).join('\n');
    let id;try{id=JSON.parse(text);}catch{assert.fail('MCP identity result was not JSON: '+text.slice(0,2000));}
-   if(id.client_id){assert(!call.result.is_error,JSON.stringify(call.result));return id;}
+   if(id.client_id){assert(!nativeResult[0].is_error,JSON.stringify(nativeResult[0]));return id;}
    assert.equal(id.error?.code,'not_connected',JSON.stringify(id));
    // Permit one bounded production auto-connect tick; completion still requires a real identity.
    await delay(250);
