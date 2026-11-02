@@ -25,13 +25,14 @@ test('receive is non-destructive; explicit ACK advances FIFO and never claims na
   const api=createCooperativeInbox({inbox:f.inbox}); const seen=await api.broker_receive();
   assert.match(seen.message,/^Broker message from AI agent /);
   assert.equal(seen.message_id,first.message_id);assert.equal(f.inbox.head().message_id,first.message_id);
+  assert.equal(seen.read_acknowledgment,'pending');assert.equal(seen.native_injection_receipt,'not_provided_by_this_delivery_mode');assert.equal(Object.hasOwn(seen,'native_acceptance_recorded'),false);
   assert.equal(Object.hasOwn(seen,'receipt_token'),false);assert.equal((await api.broker_receive()).message_id,seen.message_id);
   assert.equal(JSON.stringify(seen).includes(legacyReceipt(f,seen.message_id)),false);
   await assert.rejects(api.broker_acknowledge({message_id:first.message_id,receipt_token:randomUUID()}),{code:'receipt_required',retryable:false});
   await assert.rejects(api.broker_acknowledge({message_id:second.message_id,receipt_token:legacyReceipt(f,seen.message_id)}),{code:'receipt_required'});
   const args={message_id:seen.message_id,receipt_token:legacyReceipt(f,seen.message_id)};
   const result=await api.broker_acknowledge(args);assert.equal(result.acknowledgment_kind,'explicit_model_read');
-  assert.equal(result.native_acceptance_recorded,false);assert.equal(result.action_success,'unknown');
+  assert.equal(result.read_acknowledgment,'confirmed');assert.equal(result.native_injection_receipt,'not_provided_by_this_delivery_mode');assert.equal(Object.hasOwn(result,'native_acceptance_recorded'),false);assert.equal(result.action_success,'unknown');
   assert.equal(f.inbox.db.prepare('SELECT native_receipt FROM inbox WHERE message_id=?').get(first.message_id).native_receipt,null);
   assert.deepEqual(await api.broker_acknowledge(args),result);assert.equal(f.inbox.head().message_id,second.message_id);
   const reloaded=createCooperativeInbox({inbox:f.reopen()}); assert.deepEqual(await reloaded.broker_acknowledge(args),result);
@@ -42,6 +43,7 @@ test('unread, malformed, departed and uncertain messages cannot be acknowledged'
   const api=createCooperativeInbox({inbox:f.inbox,isActive:()=>active});
   await assert.rejects(api.broker_acknowledge({message_id:first.message_id,receipt_token:randomUUID()}),{code:'receipt_required',retryable:false});
   await assert.rejects(api.broker_receive({extra:true}),{code:'invalid_configuration'});
+  await assert.rejects(api.broker_acknowledge({message_id:first.message_id,native_acceptance_recorded:true}),{code:'invalid_configuration'});
   const seen=await api.broker_receive();f.inbox.beginInjection(first.message_id);
   await assert.rejects(api.broker_receive(),{code:'injection_uncertain'});
   await assert.rejects(api.broker_acknowledge({message_id:seen.message_id,receipt_token:legacyReceipt(f,seen.message_id)}),{code:'unsafe_boundary'});

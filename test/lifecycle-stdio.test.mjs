@@ -26,3 +26,17 @@ test('new lifecycle calls preserve arguments; reused completed JSON-RPC IDs are 
  const bad=await f.call('tools/call',{name:'broker_send',arguments:{recipient_id:uuid,text:'x',send_key:'private'}});assert.equal(bad.error.code,-32602);assert.equal(seen.length,4);
  await f.server.close();assert.equal(seen[0].context.signal.aborted,true);
 });
+
+test('agent instructions separate completed read ACK from unavailable native transcript receipt',async t=>{
+ const f=rpc({broker_identity:async()=>({})});t.after(()=>f.server.close());
+ const init=await f.call('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'fixture',version:'1'}});
+ assert.match(init.result.instructions,/read_acknowledgment:confirmed completes that read ACK/);
+ assert.match(init.result.instructions,/not failed delivery or a required user validation step/);
+ assert.doesNotMatch(init.result.instructions,/native_acceptance_recorded|native_wakeup_acceptance_unverified/);
+ const ack=TOOL_DEFINITIONS.find(x=>x.name==='broker_acknowledge');
+ assert.match(ack.description,/no additional user validation is required/);
+ assert.equal(Object.hasOwn(ack.inputSchema.properties,'native_acceptance_recorded'),false);
+ assert.equal(Object.hasOwn(ack.inputSchema.properties,'read_acknowledgment'),false);
+ assert.match(TOOL_DEFINITIONS.find(x=>x.name==='broker_identity').description,/not a per-message read receipt/);
+ assert.match(TOOL_DEFINITIONS.find(x=>x.name==='broker_receive').description,/unavailable capability, not failed delivery/);
+});
