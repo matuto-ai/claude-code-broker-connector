@@ -34,7 +34,7 @@ try {
   json(join(plugin,'hooks/hooks.json'),{hooks:{PreToolUse:[{matcher:'mcp__.*',hooks:[{type:'command',command:process.execPath,args:[join(plugin,'hook.mjs')]}]}]}});
   writeFileSync(join(plugin,'mcp.mjs'),`import fs from 'node:fs';import readline from 'node:readline';for await(const line of readline.createInterface({input:process.stdin})){if(line.length>131072)throw Error('oversize');const r=JSON.parse(line);if(r.id===undefined)continue;let result={};if(r.method==='initialize')result={protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'fixture',version:'0'}};if(r.method==='tools/list')result={tools:[{name:'probe',description:'Local contract probe only',inputSchema:{type:'object',properties:{text:{type:'string'},details:{type:'object'},_psst_permit:{type:'string'}},required:['text','details'],additionalProperties:false}}]};if(r.method==='tools/call'){fs.appendFileSync(${JSON.stringify(log)},JSON.stringify({kind:'dispatch',params:r.params})+'\\n');result={content:[{type:'text',text:'fixture accepted'}]};}console.log(JSON.stringify({jsonrpc:'2.0',id:r.id,result}));}`);
   json(join(plugin,'.mcp.json'),{mcpServers:{probe:{command:process.execPath,args:[join(plugin,'mcp.mjs')]}}});
-  let turns=0,toolName=qualifiedToolName??'mcp__plugin_psst-probe_probe__probe',observedTool=false,correlatedResult=false;
+  let turns=0,toolName=qualifiedToolName??'mcp__plugin_psst-probe_probe__probe',observedTool=false,correlatedResult=false,toolResultSummary=null;
   const gateway=createServer(async(req,res)=>{
    try{
     assert.equal(req.headers['x-api-key'],'fixture-only');let body='';for await(const c of req){body+=c;assert(body.length<=1024*1024);}
@@ -44,6 +44,7 @@ try {
     const supplied=input.tools?.find(t=>t.name.endsWith('__probe'));if(supplied){toolName=supplied.name;observedTool=true;}
     const results=input.messages.flatMap(m=>Array.isArray(m.content)?m.content:[]).filter(b=>b.type==='tool_result'&&b.tool_use_id==='toolu_fixture_dispatch');
     correlatedResult ||= results.length>0;
+    if(results.length)toolResultSummary=JSON.stringify(results).slice(0,2000);
     const tool=turns===1,block=tool?{type:'tool_use',id:'toolu_fixture_dispatch',name:toolName,input:{}}:{type:'text',text:''};
     const args={...original,...(mode==='allow-absent'?{}:{_psst_permit:'MODEL_FAKE'})};
     const delta=tool?{type:'input_json_delta',partial_json:JSON.stringify(args)}:{type:'text_delta',text:'fixture completed'};
@@ -66,7 +67,7 @@ try {
    const dispatch=rows.filter(r=>r.kind==='dispatch'),hooks=rows.filter(r=>r.kind==='hook');
    if(mode==='deny'){assert.equal(dispatch.length,0,'native deny must prevent MCP dispatch');assert(turns>=2&&correlatedResult,'native host must return a correlated result for the forbidden tool request');}
    else{
-    assert(observedTool,'plugin tool must be advertised by actual native CLI');assert(correlatedResult,'native host must feed correlated tool result back');assert.equal(hooks.length,1);assert.equal(dispatch.length,1);
+    assert(observedTool,'plugin tool must be advertised by actual native CLI');assert(correlatedResult,'native host must feed correlated tool result back');assert.equal(hooks.length,1);assert.equal(dispatch.length,1,JSON.stringify({mode,tool:toolName,hook_count:hooks.length,tool_result:toolResultSummary,stderr:result.stderr.slice(-1500)}));
     assert(hooks[0].session&&hooks[0].toolUseId);assert.equal(hooks[0].tool,toolName);assert.deepEqual(hooks[0].input,{...original,...(mode==='allow-absent'?{}:{_psst_permit:'MODEL_FAKE'})});
     qualifiedToolName=toolName;assert.equal(dispatch[0].params.name,'probe');assert.deepEqual(dispatch[0].params.arguments,{...original,_psst_permit:token});
    }
