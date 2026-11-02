@@ -51,7 +51,7 @@ for(const scenario of ['normal','broker-mismatch','persistent-store','auto-resum
  child=spawn(process.execPath,[...scenario==='auto-resume-race'?['--import',preload]:[],'bin/plugin-mcp.mjs'],{env:{...process.env,HOME:selectedHome,PSST_CLAUDE_CONFIG:durable?'':join(root,'absent'),PSST_CONFIG_FILE:'',NODE_EXTRA_CA_CERTS:cert,...(durable?{CLAUDE_CONFIG_DIR:durableConfig}:{}),...(scenario==='broker-mismatch'?{PSST_PLUGIN_BROKER_URL:'https://wrong-broker.invalid'}:{})},stdio:['pipe','pipe','pipe']});t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});ended=new Promise(r=>child.once('exit',r));stdout='';stderr='';let buffer='',id=0;const waiters=new Map();child.stderr.on('data',c=>stderr+=c);child.stdout.on('data',c=>{stdout+=c;buffer+=c;while(buffer.includes('\n')){const n=buffer.indexOf('\n'),r=JSON.parse(buffer.slice(0,n));buffer=buffer.slice(n+1);waiters.get(r.id)?.(r);waiters.delete(r.id);}});
  const ask=(method,params)=>new Promise(r=>{const next=++id;waiters.set(next,r);child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');});
  await ask('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'fixture',version:'0'}});child.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');
- call=async(name,args={})=>{const r=await ask('tools/call',{name,arguments:args});assert(!r.error,JSON.stringify(r));return JSON.parse(r.result.content[0].text);};
+ call=async(name,args={})=>{const r=await ask('tools/call',{name,arguments:args});assert(!r.error,JSON.stringify(r));return r.result.structuredContent ?? JSON.parse(r.result.content[0].text);};
  }
  await start();
  if(['disconnect','eof','sessionend','registration-disconnect'].includes(scenario)){

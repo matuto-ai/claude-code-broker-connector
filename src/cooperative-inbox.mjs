@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { LocalError } from '../vendor/psst/reference/errors.mjs';
 import { nativeMessage } from './message-format.mjs';
 import { validateUuid } from '../vendor/psst/src/protocol.mjs';
+import { NATIVE_INJECTION_RECEIPT } from './delivery-status.mjs';
 
 /** Application-level explicit read ACK. Never a native injection receipt or action success. */
 export function createCooperativeInbox({ inbox, isActive = () => true }) {
@@ -24,7 +25,8 @@ export function createCooperativeInbox({ inbox, isActive = () => true }) {
           inbox.db.prepare('INSERT INTO cooperative_receipts(message_id,receipt_token,exposed_at) VALUES(?,?,?)').run(head.message_id, receipt.receipt_token, inbox.now());
         }
         return { message_id: head.message_id, message: nativeMessage(head.envelope),
-          local_state: 'pending', local_mode: 'explicit_read', native_acceptance_recorded: false,
+          local_state: 'pending', local_mode: 'explicit_read', read_acknowledgment: 'pending',
+          native_injection_receipt: NATIVE_INJECTION_RECEIPT,
           acknowledgment_required: true };
       }, { growth: 4096 });
     },
@@ -47,7 +49,8 @@ export function createCooperativeInbox({ inbox, isActive = () => true }) {
           inbox.db.prepare("UPDATE inbox SET state='consumed',consumed_at=? WHERE message_id=?").run(inbox.now(), args.message_id);
         }
         return { message_id: args.message_id, acknowledged: true, acknowledgment_kind: 'explicit_model_read',
-          native_acceptance_recorded: false, action_success: 'unknown' };
+          read_acknowledgment: 'confirmed', native_injection_receipt: NATIVE_INJECTION_RECEIPT,
+          action_success: 'unknown' };
       });
     },
   };

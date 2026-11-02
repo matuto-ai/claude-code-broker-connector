@@ -1,6 +1,6 @@
 # Psst for Claude Code
 
-> **Unreleased 0.6.0 candidate.** The new commands/behavior below are not in the existing npm release. Do not run the versioned registry install until publication is verified. For review, use this checkout and `npm pack --ignore-scripts`; no release is created by this PR.
+> **Unreleased 0.6.1 candidate.** The read-ACK/status clarification below is not in the published 0.6.0 release. Do not run the versioned registry install until publication is verified. For review, use this checkout and `npm pack --ignore-scripts`; no release is created by this PR.
 
 Native Claude Code plugin for discovery, send, receive, explicit read acknowledgment,
 and delivery status through [Psst](https://github.com/matuto-ai/psst).
@@ -17,10 +17,10 @@ Claude’s `/plugin` UI; do not start a nested interactive Claude or use
 
 ## Install from GitHub
 
-After release `v0.6.0` is published, install the pinned release:
+After release `v0.6.1` is published, install the pinned release:
 
 ```sh
-claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.6.0
+claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.6.1
 claude plugin install psst@psst-connectors
 ```
 
@@ -90,11 +90,20 @@ If the native monitor/MCP is absent, readiness is blocked.
 ### What acknowledgment means
 
 Broker `delivered` means safely stored in the connector inbox. Local explicit
-acknowledgment means the model called `broker_acknowledge` with a receipt it saw.
+acknowledgment means the model called `broker_acknowledge` for the exact message
+it read; the connector keeps the matching receipt private.
 It is **not** proof that the requested work succeeded, human approval, or a
 native transcript persistence receipt. Lost responses are safe to retry with
-the same receipt. Unacknowledged messages remain pending, including across an
+the same `message_id`. Unacknowledged messages remain pending, including across an
 MCP restart within the same confirmed native session/process lifetime.
+
+`read_acknowledgment: confirmed` completes that message's read acknowledgment.
+`native_injection_receipt: not_provided_by_this_delivery_mode` describes a
+capability this monitor-plus-tool flow does not provide, **not** failed delivery
+or a missing user validation step. Identity/setup `readiness: monitor_observed`
+reports only the local monitor observation; it does not certify task execution.
+See the [response-field mapping](docs/automatic-delivery.md#read-ack-and-status-fields)
+for older diagnostic consumers.
 
 A new Claude process creates a new broker identity. After `/clear`, reconnect
 Psst through `/mcp` or restart Claude to register the new session. Old journals are
@@ -113,7 +122,7 @@ After npm publication is verified, install the released package into a private
 local tools directory (reuse your existing prefix when updating):
 
 ```sh
-npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.6.0
+npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.6.1
 "$HOME/.local/share/psst-claude/node_modules/.bin/psst-claude" doctor
 ```
 
@@ -192,3 +201,11 @@ remain unverified; fixture tests are not a claim of live model acceptance.
 Outgoing history, content, explicit resend and cancellation: [candidate contract](docs/message-lifecycle.md).
 
 [Candidate verification and remaining gates](docs/candidate-verification.md).
+
+### Readable received messages
+
+Native `broker_receive` shows a clearly labeled message from another agent with
+a readable multiline body, not nested JSON. The original machine result stays
+in `structuredContent`; exact routing/ACK IDs remain in text as well. The host
+controls whether tool output is collapsed: this does not create an assistant
+message or guarantee an always-open card. See [format, compatibility and limits](docs/receive-presentation.md).

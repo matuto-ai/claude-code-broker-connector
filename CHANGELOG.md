@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 (unreleased)
+
+- Render nonempty native receive results as readable other-agent messages while preserving the original structured result, full body, exact IDs and pending ledger. Host UI controls folding; no new hook or assistant turn.
+
+- Distinguish a pending/confirmed native read ACK from the host injection receipt this delivery mode does not provide. Replace the permanent acceptance-unverified status with current connection/monitor observations; no new user attestation, automatic ACK, task-success claim or permission change.
+
 ## 0.5.0
 
 - Configure only a broker HTTPS URL inside Claude, explicitly request access, and approve the exact installation in the broker operator UI. No pairing-secret field or per-session file handoff.

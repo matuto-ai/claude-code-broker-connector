@@ -93,3 +93,29 @@ Receive now renders a compact AI-agent header and escaped message JSON. Wire
 origin/authority validation and normal native permissions are unchanged. Explicit
 read ACK needs only the exact message ID; its already exposed same-inbox receipt
 is resolved internally, with supplied legacy tokens still validated strictly.
+
+## Read ACK and status fields
+
+Native `broker_receive` returns `read_acknowledgment: pending` and requires the
+explicit ACK. Successful `broker_acknowledge` returns `acknowledged: true`,
+`acknowledgment_kind: explicit_model_read` and `read_acknowledgment: confirmed`.
+That read acknowledgment is complete, including an idempotent retry. Requested
+work still has `action_success: unknown`; an ACK is not human permission.
+
+`native_injection_receipt: not_provided_by_this_delivery_mode` describes the
+monitor-plus-tool flow's capability. It is not a failed read or a pending user
+validation step. There is no manual certification toggle. This replaces the
+misleading native `native_acceptance_recorded: false` field from 0.6.0; consumers
+should use `acknowledged`/`read_acknowledgment` for read-ACK status, never invert
+the old flag to infer failure. The byte-pinned diagnostic legacy reference still
+returns the old flag with this same capability meaning. No native receipt is
+inserted into the database, and no pending item is consumed by status or receive.
+
+Identity and setup status report local readiness: `not_connected`,
+`blocked_monitor_not_observed`, or `monitor_observed`. The last value replaces
+`native_wakeup_acceptance_unverified`; it means the exact session's current
+monitor state was recently observed, not that the monitor caused a model turn.
+The accompanying attention/rate-limit state remains authoritative. Neither
+missing observation after an ACK nor unavailable transcript receipts invalidates
+a confirmed read ACK. A successful human pilot can be recorded independently
+without inventing machine attestation or certifying untested runtime cases.
