@@ -177,8 +177,11 @@ npm test
 npm pack --dry-run
 ```
 
-Unit/pack tests are self-contained. `npm run test:integration` additionally needs
-the pinned Psst broker checkout at `../ai-agent-msg-broker`; CI provides it. Native
+The maintainer commands above and `npm run test:integration` require the Psst
+broker checkout at `../ai-agent-msg-broker`, pinned to
+`f32ddc79ec7b812062ed3f6de7b9a0c12a7128f3`; both verification and release CI
+provide that same fixture. Unit tests include real broker retention fixtures, and
+`npm pack` runs the unit suite through `prepack`. Native
 plugin hooks, real broker transport, SQLite persistence, explicit multi-message
 ACK, MCP restart, and session shutdown are exercised by a synthetic native
 parent. [Verification details](docs/verification.md) distinguish this from a real
