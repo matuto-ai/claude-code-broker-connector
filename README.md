@@ -105,10 +105,14 @@ reports only the local monitor observation; it does not certify task execution.
 See the [response-field mapping](docs/automatic-delivery.md#read-ack-and-status-fields)
 for older diagnostic consumers.
 
-A new Claude process creates a new broker identity. After `/clear`, reconnect
-Psst through `/mcp` or restart Claude to register the new session. Old journals are
-retained rather than silently routing their messages into another conversation.
-No automatic replay into a different session is performed.
+A new native session receives its own broker identity. The native MCP transport
+stays available while a verified `/clear`/`/new` transition retires the old runtime
+and attaches the new lifetime using saved approved configuration. A same-lifetime
+compact retains the identity and inbox. Old journals and uncertain work stay with
+their original lifetime; no cross-session replay or implicit enrollment occurs.
+If native tools are missing, use the bounded `/mcp` recovery above rather than
+starting a second server. Monitor availability is checked independently.
+See [native lifetime boundaries](docs/native-lifetime.md) for validation scope.
 
 Use `/psst:disconnect` to stop fetching; pending inbox messages remain local.
 An explicit reconnect within the same native lifetime resumes them. Broker

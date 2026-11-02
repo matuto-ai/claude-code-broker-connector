@@ -5,7 +5,8 @@ import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawn} from 'node:child_process';
 import {setTimeout as delay} from 'node:timers/promises';
-import {pluginHook,hostDirectory,readBinding} from '../src/plugin-state.mjs';
+import {fixtureHook as pluginHook} from '../integration/native-fixture-permit.mjs';
+import {hostDirectory,readBinding} from '../src/plugin-state.mjs';
 import {processIdentity,writePrivateJson} from '../src/launch-state.mjs';
 test('monitor fixture is session-fenced, body-free, silent on disconnect and exits on SessionEnd (not native certification)',async t=>{
  const home=mkdtempSync(join(tmpdir(),'psst-monitor-'));t.after(()=>rmSync(home,{recursive:true,force:true}));

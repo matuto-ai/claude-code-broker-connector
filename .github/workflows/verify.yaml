@@ -35,6 +35,12 @@ jobs:
         run: |
           docker build -f integration/Containerfile -t psst-claude-fixture:local .
           PSST_TEST_DOCKER=psst-claude-fixture:local node --test integration/container-approval.test.mjs
+          docker build -f integration/NativeContainerfile -t psst-claude-native-probe:local .
+          native_container="psst-native-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          lifecycle_container="psst-lifecycle-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'docker rm -f "$native_container" "$lifecycle_container" >/dev/null 2>&1 || true' EXIT
+          timeout --kill-after=5s 100s docker run --name "$native_container" --rm --network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp:rw,nosuid,size=128m psst-claude-native-probe:local
+          timeout --kill-after=5s 100s docker run --name "$lifecycle_container" --rm --network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp:rw,nosuid,size=128m -v "$PWD/../ai-agent-msg-broker:/opt/psst:ro" -e PSST_TEST_ROOT=/opt/psst psst-claude-native-probe:local node /opt/connector/integration/native-lifecycle-probe.mjs
         working-directory: claude-code-review-pair
       - name: Verify installable package
         run: npm run test:pack

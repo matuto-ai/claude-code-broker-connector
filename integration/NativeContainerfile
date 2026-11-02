@@ -1,0 +1,9 @@
+FROM node:24.19.0-bookworm@sha256:4196d66a565c6f195728d9952f161f4adfe2ad753052a08b7ec7f1c5a6bda42b
+WORKDIR /opt/claude
+# Official package bytes, pinned independently of current dist-tags; no npm lifecycle scripts.
+RUN node --input-type=module -e "import{writeFileSync}from'node:fs';import{createHash}from'node:crypto';const r=await fetch('https://registry.npmjs.org/@anthropic-ai/claude-code-linux-x64/-/claude-code-linux-x64-2.1.310.tgz',{signal:AbortSignal.timeout(60000)});if(!r.ok)throw Error('artifact download failed');const b=Buffer.from(await r.arrayBuffer());if(createHash('sha512').update(b).digest('base64')!=='CuzpJrMBbqaR3+1SiLrBtPV3w/cFvcqBfhe9kNskzZ2Fm6KXa7v0l7tM+Ln6l5QLb79WoU0CcacXnYtsygbe6A==')throw Error('artifact integrity mismatch');writeFileSync('official.tgz',b)" \
+ && tar -xzf official.tgz && rm official.tgz
+COPY integration/native-dispatch-probe.mjs /opt/probe.mjs
+COPY . /opt/connector
+USER 1000:1000
+CMD ["node","/opt/probe.mjs"]

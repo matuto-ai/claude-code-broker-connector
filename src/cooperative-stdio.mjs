@@ -60,8 +60,8 @@ function validArguments(value, schema) {
  * once and is not an agent tool. No credentials are accepted by this interface.
  */
 export function serveStdio({ input = process.stdin, output = process.stdout, tools, onClose = async () => {},
-  onDiagnostic = () => {}, maxFrameBytes = 128 * 1024, maxResponseBytes = 512 * 1024, readableNativeReceive = false, maxReceiveResponseBytes = maxResponseBytes, maxInflight = 8 } = {}) {
-  if (!tools || !input?.on || !output?.write || !Number.isSafeInteger(maxFrameBytes) || maxFrameBytes < 1024 || maxFrameBytes > 1024 * 1024
+  onDiagnostic = () => {}, maxFrameBytes = 128 * 1024, maxResponseBytes = 512 * 1024, readableNativeReceive = false, maxReceiveResponseBytes = maxResponseBytes, maxInflight = 8, nativeAdmission } = {}) {
+  if ((nativeAdmission!==undefined&&typeof nativeAdmission!=='function') || !tools || !input?.on || !output?.write || !Number.isSafeInteger(maxFrameBytes) || maxFrameBytes < 1024 || maxFrameBytes > 1024 * 1024
     || !Number.isSafeInteger(maxResponseBytes) || maxResponseBytes < 1024 || maxResponseBytes > 1024 * 1024
     || typeof readableNativeReceive !== 'boolean' || !Number.isSafeInteger(maxReceiveResponseBytes) || maxReceiveResponseBytes < 1024 || maxReceiveResponseBytes > 1024 * 1024
     || !Number.isSafeInteger(maxInflight) || maxInflight < 1 || maxInflight > 32) throw new Error('invalid_stdio_configuration');
@@ -78,7 +78,7 @@ export function serveStdio({ input = process.stdin, output = process.stdout, too
     try { await onClose(); } catch { diagnostic('stdio_close_failed'); }
     closeResolve(); return done;
   };
-  function send(message, limit = maxResponseBytes) {
+  function send(message, limit = maxResponseBytes, isCurrent) {
     if (closed) return;
     if (pendingWrites >= maxInflight) { void close('stdio_output_backpressure'); return; }
     let line;
@@ -89,9 +89,11 @@ export function serveStdio({ input = process.stdin, output = process.stdout, too
     pendingWrites++;
     writes = writes.then(() => new Promise(resolve => {
       if (closed) return resolve();
+      if(isCurrent){let current=false;try{current=isCurrent();}catch{}if(!current)line=JSON.stringify({jsonrpc:'2.0',id:message.id??null,error:{code:-32000,message:'Native session changed; original operation outcome remains with its original session.'}})+'\n';}
       try { output.write(line, error => { if (error) void close('stdio_write_failed'); resolve(); }); }
       catch { void close('stdio_write_failed'); resolve(); }
     })).finally(() => { pendingWrites--; });
+    return writes;
   }
   const error = (id, code, message) => send({ jsonrpc: '2.0', id, error: { code, message } });
 
@@ -112,18 +114,26 @@ export function serveStdio({ input = process.stdin, output = process.stdout, too
     if (phase !== 'ready') { error(id, -32000, 'Complete initialize and notifications/initialized first.'); return; }
     if (request.method === 'tools/list') {
       if (request.params !== undefined && (!isObject(request.params) || Object.keys(request.params).length)) { error(id, -32602, 'Tool pagination is not supported.'); return; }
-      send({ jsonrpc: '2.0', id, result: { tools: TOOL_DEFINITIONS.filter(definition => typeof tools[definition.name] === 'function') } }); return;
+      send({ jsonrpc: '2.0', id, result: { tools: TOOL_DEFINITIONS.filter(definition => typeof tools[definition.name] === 'function').map(definition=>nativeAdmission?{...definition,inputSchema:{...definition.inputSchema,properties:{...definition.inputSchema.properties,_psst_permit:{type:'string',maxLength:129}}}}:definition) } }); return;
     }
     if (request.method === 'tools/call') {
       const p = request.params, definition = TOOL_DEFINITIONS.find(item => item.name === p?.name);
-      if (!isObject(p) || Object.keys(p).some(key => !['name', 'arguments', '_meta'].includes(key)) || !definition || typeof tools[definition.name] !== 'function' || !validArguments(p.arguments ?? {}, definition.inputSchema)) {
+      if (!isObject(p) || Object.keys(p).some(key => !['name', 'arguments', '_meta'].includes(key)) || !definition || typeof tools[definition.name] !== 'function' || !isObject(p.arguments ?? {})) {
         error(id, -32602, 'Unknown tool or invalid bounded arguments.'); return;
       }
-      // JSON-RPC IDs can be reused after completion: they are not durable intent IDs.
-      // Each admitted invocation is new; HTTP retry/reconnect recovery retains its private key.
-      const result = await invokeTool(tools, p.name, p.arguments ?? {}, { signal: transportAbort.signal });
-      const presented = readableNativeReceive && p.name === 'broker_receive' ? readableReceive(result) : null;
-      send({ jsonrpc: '2.0', id, result: presented ?? { content: [{ type: 'text', text: canonical(result) }], isError: Boolean(result?.error) } }, presented ? maxReceiveResponseBytes : maxResponseBytes); return;
+      let admission,args=p.arguments??{};
+      if(nativeAdmission){
+        try{admission=await nativeAdmission(p.name,args);args=admission.arguments;if(typeof admission.isCurrent!=='function'||!admission.isCurrent())throw Error('stale');}
+        catch{return error(id,-32000,'Native call provenance unavailable; no new operation admitted.');}
+      }
+      if(!validArguments(args,definition.inputSchema))return error(id,-32602,'Unknown tool or invalid bounded arguments.');
+      // Preserve request-id ownership until its queued response is actually written.
+      try{
+        if(admission&&!admission.isCurrent())throw Error('stale');
+        const result = await invokeTool(admission?.tools??tools, p.name, args, { signal: transportAbort.signal });
+        const presented = readableNativeReceive && p.name === 'broker_receive' ? readableReceive(result) : null;
+        return send({ jsonrpc: '2.0', id, result: presented ?? { content: [{ type: 'text', text: canonical(result) }], isError: Boolean(result?.error) } }, presented ? maxReceiveResponseBytes : maxResponseBytes,admission?.isCurrent);
+      }catch{return send({jsonrpc:'2.0',id,error:{code:-32603,message:'Tool result unavailable; reconcile the original operation.'}},maxResponseBytes,admission?.isCurrent);}
     }
     error(id, -32601, 'Method not supported by this tools-only stdio server.');
   }

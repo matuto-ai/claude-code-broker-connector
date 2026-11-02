@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- Keep native MCP transport available across verified conversation changes with per-call native provenance, complete old-lifetime draining and queued-output fencing. Preserve same-lifetime compaction and old pending/uncertain work.
+
 - Resolve shared project labels with bounded local configuration and hide provider in readable presentation without changing model provenance.
 - Add explicitly opted-in registration v2 native-incarnation recovery. Expired identity replacement starts an empty journal and preserves old uncertain work separately. Default v1 behavior and broker enforcement remain unchanged.
 

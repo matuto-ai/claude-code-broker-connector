@@ -1,3 +1,4 @@
+import {fixtureHook as pluginHook} from './native-fixture-permit.mjs';
 // Real broker approval service + form-login HTTP UI + TLS + synthetic native host.
 // This proves transport/setup plumbing, NOT authenticated Claude/model acceptance.
 import test from 'node:test';
@@ -10,7 +11,8 @@ import {spawn,spawnSync} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 import https from 'node:https';
 import {setTimeout as delay} from 'node:timers/promises';
-import {pluginHook,nativeStateConfig} from '../src/plugin-state.mjs';
+import {fixtureArguments} from './native-fixture-permit.mjs';
+import {nativeStateConfig} from '../src/plugin-state.mjs';
 import {processIdentity} from '../src/launch-state.mjs';
 import {Inbox,newSessionIdentity} from '../vendor/psst/reference/inbox.mjs';
 import {BrokerClient} from '../vendor/psst/reference/client.mjs';
@@ -28,7 +30,7 @@ for(const scenario of ['approved-restart-replacement','cancel-late-approval','de
  const login=await http('/admin');let cookie=login.cookie,csrf=login.text.match(/name="csrf" value="([^"]+)"/)[1];const authenticated=await http('/admin/login',{method:'POST',cookie,body:{csrf,password}});assert.equal(authenticated.status,303);cookie=authenticated.cookie;
  const decide=async(id,action)=>{const page=await http('/admin',{cookie});assert(page.text.includes(id));csrf=page.text.match(/name="csrf" value="([^"]+)"/)[1];const result=await http(`/admin/requests/${id}/${action}`,{method:'POST',cookie,body:{csrf}});assert.equal(result.status,303);};
  const durable=join(root,'claude-config');let home=join(root,'home'),sessionId=randomUUID(),child,call,ended,stdout='',stderr='';
- const worker=join(root,'native-host.mjs');writeFileSync(worker,`import {spawn} from 'node:child_process';import {randomUUID} from 'node:crypto';import {pluginHook,nativeStateConfig} from ${JSON.stringify(pathToFileURL(resolve('src/plugin-state.mjs')).href)};import {processIdentity} from ${JSON.stringify(pathToFileURL(resolve('src/launch-state.mjs')).href)};const session=randomUUID(),owner=processIdentity(process.pid);pluginHook(nativeStateConfig(),{hook_event_name:'SessionStart',session_id:session},owner);const child=spawn(process.execPath,[${JSON.stringify(resolve('bin/plugin-mcp.mjs'))}],{stdio:'inherit'});child.on('exit',code=>{pluginHook(nativeStateConfig(),{hook_event_name:'SessionEnd',session_id:session},owner);process.exitCode=code;});`);
+ const worker=resolve('integration/native-host.mjs');
  const startNative=async i=>{
   const process=spawn(globalThis.process.execPath,[worker],{env:{...globalThis.process.env,HOME:join(root,'parallel-'+i),CLAUDE_CONFIG_DIR:durable,PSST_CLAUDE_CONFIG:'',PSST_CONFIG_FILE:'',PSST_PLUGIN_BROKER_URL:url,NODE_EXTRA_CA_CERTS:cert},stdio:['pipe','pipe','pipe']});t.after(()=>{if(process.exitCode===null)process.kill('SIGKILL');});const ended=new Promise(r=>process.once('close',r));let buffer='',id=0;const waiters=new Map();process.stdout.on('data',chunk=>{buffer+=chunk;while(buffer.includes('\n')){const n=buffer.indexOf('\n'),r=JSON.parse(buffer.slice(0,n));buffer=buffer.slice(n+1);waiters.get(r.id)?.(r);waiters.delete(r.id);}});
   const ask=(method,params)=>new Promise(r=>{const next=++id;waiters.set(next,r);process.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');});await ask('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'parallel-native',version:'0'}});process.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');const call=async(name,args={})=>JSON.parse((await ask('tools/call',{name,arguments:args})).result.content[0].text);return {process,ended,call};
@@ -36,7 +38,7 @@ for(const scenario of ['approved-restart-replacement','cancel-late-approval','de
  const start=async()=>{
   pluginHook(nativeStateConfig({HOME:home,CLAUDE_CONFIG_DIR:durable},processIdentity(process.pid),sessionId),{hook_event_name:'SessionStart',session_id:sessionId},processIdentity(process.pid));
   child=spawn(process.execPath,['bin/plugin-mcp.mjs'],{env:{...process.env,HOME:home,CLAUDE_CONFIG_DIR:durable,PSST_CLAUDE_CONFIG:'',PSST_CONFIG_FILE:'',PSST_PLUGIN_BROKER_URL:url,NODE_EXTRA_CA_CERTS:cert},stdio:['pipe','pipe','pipe']});const started=child;t.after(()=>{if(started.exitCode===null)started.kill('SIGKILL');});ended=new Promise(r=>child.once('close',r));let buffer='',id=0;const waiters=new Map();child.stdout.on('data',c=>{stdout+=c;buffer+=c;while(buffer.includes('\n')){const n=buffer.indexOf('\n'),r=JSON.parse(buffer.slice(0,n));buffer=buffer.slice(n+1);waiters.get(r.id)?.(r);waiters.delete(r.id);}});child.stderr.on('data',c=>stderr+=c);
-  const ask=(method,params)=>new Promise(r=>{const next=++id;waiters.set(next,r);child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');});await ask('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'synthetic-native',version:'0'}});child.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');call=async(name,args={})=>{const result=await ask('tools/call',{name,arguments:args});assert(!result.error,JSON.stringify(result));return result.result.structuredContent ?? JSON.parse(result.result.content[0].text);};
+  const ask=(method,params)=>new Promise(r=>{const next=++id;waiters.set(next,r);child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');});await ask('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'synthetic-native',version:'0'}});child.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');call=async(name,args={})=>{const signed=fixtureArguments({config:nativeStateConfig({HOME:home,CLAUDE_CONFIG_DIR:durable},processIdentity(process.pid),sessionId),sessionId,name,args});const result=await ask('tools/call',{name,arguments:signed});assert(!result.error,JSON.stringify(result));return result.result.structuredContent ?? JSON.parse(result.result.content[0].text);};
  };
  const identity=async()=>{let value;for(let i=0;i<150;i++){value=await call('broker_identity');if(value.client_id)return value;await delay(25);}assert.fail(JSON.stringify({value,stderr}));};
  await start();await delay(350);assert.equal(posts,0);assert.equal((await call('broker_identity')).error.code,'not_connected');
