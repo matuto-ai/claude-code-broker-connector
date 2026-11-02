@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Explain bounded native MCP recovery for missing tools, distinguishing failed, absent, connected-but-unavailable and policy-disabled states. Recheck identity and monitor status without replacing saved authorization. No change to lifecycle binding, transport, permissions or enrollment behavior; uninterrupted native session transitions remain unverified.
+
 ## 0.5.1 (unreleased)
 
 - Align the package, plugin and marketplace versions with the Psst 0.5.1 release set. This numbering change does not erase the previous npm 0.6.0 publication; registry release and dist-tag management remain explicit operator actions.

@@ -70,3 +70,24 @@ test('only documented read-only launcher invocation; missing/locked/unknown laun
     assert.doesNotMatch(JSON.stringify(failure), /secret path|sensitive lock/);
   }
 });
+
+test('missing native tools have bounded native recovery, not an attachment assertion or bypass', () => {
+  const diagnostic = pluginMcpDiagnostic({ env: {}, settingsPaths: [] });
+  assert.equal(diagnostic.state, 'native_attachment_unverified');
+  for (const message of [diagnostic.next_action, sessionCapabilityContext({})]) {
+    assert.match(message, /interactive terminal/);
+    assert.match(message, /existing plugin:psst:psst server is failed, select Reconnect once/);
+    assert.match(message, /If absent, inspect \/plugin load errors/);
+    assert.match(message, /if connected but tools remain unavailable, report that discrepancy/);
+    assert.match(message, /If recovery fails, stop/);
+    assert.match(message, /Never change policy, add a parallel server, edit bindings/);
+    assert.doesNotMatch(message, /never attached|tools are available/);
+  }
+  const suppressed = pluginMcpDiagnostic({ env: { [SKIP_PLUGIN_MCP]: '1' }, settingsPaths: [] });
+  assert.doesNotMatch(suppressed.next_action, /select Reconnect/);
+  assert.doesNotMatch(sessionCapabilityContext({ [SKIP_PLUGIN_MCP]: '1' }), /select Reconnect/);
+  const skill = readFileSync(new URL('../skills/connect/SKILL.md', import.meta.url), 'utf8');
+  assert.match(skill, /Entry disabled or policy restriction observed: stop/);
+  assert.match(skill, /Non-interactive sessions do not/);
+  assert.match(skill, /never request\nreplacement enrollment/);
+});
