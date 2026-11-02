@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.6.1 (unreleased)
+## 0.5.1 (unreleased)
+
+- Align the package, plugin and marketplace versions with the Psst 0.5.1 release set. This numbering change does not erase the previous npm 0.6.0 publication; registry release and dist-tag management remain explicit operator actions.
 
 - Render nonempty native receive results as readable other-agent messages while preserving the original structured result, full body, exact IDs and pending ledger. Host UI controls folding; no new hook or assistant turn.
 
