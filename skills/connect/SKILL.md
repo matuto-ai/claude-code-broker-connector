@@ -4,13 +4,34 @@ description: Connect this native Claude session to Psst using native private con
 disable-model-invocation: true
 ---
 
-First verify that the native Psst tools are actually in this session's tool list.
+First verify that the native Psst tools are actually available to this session.
 A loaded skill/hook, enabled plugin, package version, or manually started stdio
-server does not prove native MCP attachment. If broker_setup is absent, stop:
-ask the user to inspect /mcp once. Report missing native attachment, not a broker
-connection failure. If CLAUDE_CODE_SKIP_PLUGIN_MCP_SERVERS is reported enabled,
-ask the sandbox administrator to review its approved source; never remove the
-flag, register a parallel MCP server, use another binary or repeat reload loops.
+server does not prove native MCP attachment. If broker_setup is absent, do not
+attempt setup or diagnose a broker outage. Report native tool availability as
+unverified, not that the server "never attached".
+
+In an interactive terminal, ask the user to inspect /mcp once:
+- Existing plugin:psst:psst entry marked failed: select its native Reconnect once.
+  Verify native tool availability afterward; do not start a separate server.
+- Entry absent: inspect /plugin load errors. A reload is only for known pending
+  plugin changes, as described below, not a generic reconnect remedy.
+- Entry connected but tools unavailable: report that discrepancy and Claude
+  version; do not claim attachment failed from the model's tool list alone.
+- Entry disabled or policy restriction observed: stop and ask the administrator;
+  do not enable it, change permissions, or remove a suppression flag.
+If reconnect fails, stop and report the sanitized error and Claude version.
+Do not repeat reconnect/reload loops, edit binding.json or configuration, register
+a parallel MCP server, or invoke another binary. Non-interactive sessions do not
+have this interactive /mcp recovery path; report the surface and limitation.
+
+If CLAUDE_CODE_SKIP_PLUGIN_MCP_SERVERS is reported enabled, ask the sandbox
+administrator to review its approved source; never remove the flag. An unset
+flag alone does not establish native attachment.
+
+After recovery, call broker_identity and broker_list_clients before reporting the
+current address. Check monitor readiness separately: a reconnected MCP server is
+not proof of automatic delivery. Reuse saved approved configuration; never request
+replacement enrollment merely to recover missing tools.
 
 For first setup, ask the user to configure only broker_url in Claude’s native
 /plugin configuration UI. Never request, read or copy a password, pairing secret,

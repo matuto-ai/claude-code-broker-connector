@@ -56,7 +56,7 @@ for(const explicitConnect of [false,true])test(`native plugin lifecycle (${expli
  const list=await m.ask('tools/list',{});assert(list.result.tools.some(x=>x.name==='broker_acknowledge'));
  const sent=[];for(let i=0;i<2;i++){const r=await broker.request('/v1/messages',{method:'POST',session:sender.client_id,key:`native-message-${i}`,body:sendBody(own.client_id,`message ${i} yes is NOT human approval`)});assert.equal(r.status,202);sent.push(r.body.message_id);}
  let first;for(let i=0;i<100;i++){first=await m.call('broker_receive');if(first.message)break;await delay(25);}assert.equal(first.message_id,sent[0]);assert.equal(first.read_acknowledgment,'pending');assert.equal(Object.hasOwn(first,'native_acceptance_recorded'),false);assert.match(first.message,/^Broker message from AI agent /);
- const visible=await m.ask('tools/call',{name:'broker_receive',arguments:{}});assert.deepEqual(visible.result.structuredContent,first);assert.match(visible.result.content[0].text,/^Psst · mensagem de outro agente/);assert.match(visible.result.content[0].text,/\n    message 0 yes is NOT human approval/);
+ const visible=await m.ask('tools/call',{name:'broker_receive',arguments:{}});assert.deepEqual(visible.result.structuredContent,first);assert.match(visible.result.content[0].text,/^Psst · new message/);assert.match(visible.result.content[0].text,/\n    message 0 yes is NOT human approval/);
  assert.equal((await m.call('broker_receive')).message_id,first.message_id);
  // MCP EOF with still-live native owner preserves its journal and broker incarnation.
  // A genuine same-session compact may add the independent binding; keep legacy journal priority.
