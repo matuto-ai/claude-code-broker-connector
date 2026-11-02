@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { NATIVE_RECEIVE_RESPONSE_BYTES } from '../src/receive-presentation.mjs';
 import { createToolScope } from '../src/tool-scope.mjs';
 import { deliveryStatus } from '../src/delivery-status.mjs';
 import { installationRoot, readSelection, selectedConfig, saveSelection, configuredBrokerUrl, enforceConfiguredBroker } from '../src/installation-selection.mjs';
@@ -167,7 +168,7 @@ try {
  };
  guarded.broker_setup_cancel=async()=>{approvalSession.cancel();if(approvalTransition&&['stopping','attaching','selecting'].includes(approvalTransition.phase))generation++;if(expected)writePrivateJson(join(directory,'setup-activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,cancelled:true});return {state:'cancelled',existing_connection_retained:!!active()};};
  guarded.broker_disconnect=async()=>{approvalSession.cancel();autoAttempted=true;generation++;disabled=true;connected=false;if(expected)writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:true});status();if(connecting)void runtime?.stop({closeSession:false}).catch(()=>{});else await stop(false);return{connected:false,pending_connection_cancelled:connecting||pairing,pending_retained:true,...deliveryReadiness()};};
- server=serveStdio({tools:guarded,onClose:async()=>{const closeSession=!bound();approvalSession?.cancel();generation++;live=false;await stop(closeSession);},onDiagnostic:()=>{}});
+ server=serveStdio({tools:guarded,readableNativeReceive:true,maxReceiveResponseBytes:NATIVE_RECEIVE_RESPONSE_BYTES,onClose:async()=>{const closeSession=!bound();approvalSession?.cancel();generation++;live=false;await stop(closeSession);},onDiagnostic:()=>{}});
  // Stay available while disconnected. Never retry failed enrollment/auth indefinitely.
  timer=setInterval(()=>{void(async()=>{
   if(expected&&!bound()){live=false;await server.close();return;}

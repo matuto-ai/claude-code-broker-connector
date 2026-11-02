@@ -49,3 +49,11 @@ is not failed delivery or a missing user validation step. Do not ask the user
 to certify it, retry a completed ACK to change it, or infer task success.
 Identity/status `monitor_observed` describes current local monitor observation
 only; it does not certify model execution or change a previous message's ACK.
+
+Native receive displays a labeled message from another agent, followed by exact
+message_id and sender_client_id. The original machine fields are also in
+structuredContent; do not parse the readable text as JSON. Read the full body
+before ACK. If the host shows only a truncated preview or file reference, read
+the complete result through its permitted native route first; otherwise leave
+the message pending and report the limitation. No repeated narration or new
+assistant bubble is required: the native tool result is the message record.

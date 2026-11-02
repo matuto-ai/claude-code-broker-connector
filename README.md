@@ -201,3 +201,11 @@ remain unverified; fixture tests are not a claim of live model acceptance.
 Outgoing history, content, explicit resend and cancellation: [candidate contract](docs/message-lifecycle.md).
 
 [Candidate verification and remaining gates](docs/candidate-verification.md).
+
+### Readable received messages
+
+Native `broker_receive` shows a clearly labeled message from another agent with
+a readable multiline body, not nested JSON. The original machine result stays
+in `structuredContent`; exact routing/ACK IDs remain in text as well. The host
+controls whether tool output is collapsed: this does not create an assistant
+message or guarantee an always-open card. See [format, compatibility and limits](docs/receive-presentation.md).
