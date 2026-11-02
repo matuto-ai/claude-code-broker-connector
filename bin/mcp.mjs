@@ -1,3 +1,4 @@
+import { projectMetadata } from '../src/project-metadata.mjs';
 import { verifyReference } from '../src/reference-pin.mjs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -26,7 +27,7 @@ try {
   const runtime = new AdapterRuntime({ client, inbox, verifySession: () => current().alive, isAlive: () => current().alive });
   bridge = createClaudeSessionBridge({ reference: { createTools, serveStdio }, client, inbox, runtime,
     binding, getCurrentBinding: current, input: process.stdin, output: process.stdout,
-    observeMetadata: () => ({ model: observedModel(run) }),
+    observeMetadata: () => ({ model: observedModel(run), project: projectMetadata(config) }),
     onDiagnostic: ({ code }) => process.stderr.write(`${code}\n`),
   });
   process.stdin.once('end', () => { alive = false; });
@@ -37,7 +38,7 @@ try {
     if (!alive || closed(run) || Date.now() >= deadline) throw new Error('session_confirmation_unavailable');
     await delay(25);
   }
-  await bridge.start({ name: config.name, project: config.project ?? null, model: observedModel(run) });
+  await bridge.start({ name: config.name, project: projectMetadata(config), model: observedModel(run) });
   monitor = setInterval(() => { if (!current().alive) { alive = false; void bridge.close(); } }, 250);
   await bridge.done;
 } catch {

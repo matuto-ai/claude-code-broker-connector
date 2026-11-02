@@ -19,7 +19,7 @@ for(const explicitConnect of [false,true])test(`native plugin lifecycle (${expli
  const bindingConfig=explicitConnect?{stateRoot:join(root,'.config','psst','native')}:config;
  const event=name=>pluginHook(bindingConfig,{hook_event_name:name,session_id:nativeId},host);
  async function start(){
-  const child=spawn(process.execPath,['bin/plugin-mcp.mjs'],{env:{...process.env,HOME:root,PSST_CLAUDE_CONFIG:explicitConnect?join(root,'not-configured'):configPath},stdio:['pipe','pipe','pipe']});
+  const child=spawn(process.execPath,['bin/plugin-mcp.mjs'],{env:{...process.env,HOME:root,PSST_PROJECT_ENV:'PSST_FIXTURE_PROJECT',PSST_FIXTURE_PROJECT:'sandbox-shared-project',PSST_CLAUDE_CONFIG:explicitConnect?join(root,'not-configured'):configPath},stdio:['pipe','pipe','pipe']});
   t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});
   let buffer='',stderr='',next=1;const pending=new Map();child.stderr.on('data',c=>stderr+=c);
   child.stdout.on('data',c=>{buffer+=c;while(buffer.includes('\n')){const i=buffer.indexOf('\n'),r=JSON.parse(buffer.slice(0,i));buffer=buffer.slice(i+1);pending.get(r.id)?.(r);pending.delete(r.id);}});
@@ -33,6 +33,7 @@ for(const explicitConnect of [false,true])test(`native plugin lifecycle (${expli
  let m=await start();assert.equal((await m.call('broker_identity')).error.code,'session_binding_unavailable');event('SessionStart');
  if(explicitConnect){assert.equal((await m.call('broker_connect',{connection_file:join(root,'missing')})).error.code,'invalid_connection_file');writeFileSync(token,'x'.repeat(43),{mode:0o600});const failed=await m.call('broker_connect',{connection_file:configPath});assert.equal(failed.error.code,'connection_failed');assert.equal(failed.error.effect,'unknown');writeFileSync(token,broker.b.token,{mode:0o600});const c=await m.call('broker_connect',{connection_file:configPath});assert(c.client_id,JSON.stringify(c));assert.equal((await m.call('broker_connect',{connection_file:configPath})).client_id,c.client_id);}
  let own;for(let i=0;i<100;i++){own=await m.call('broker_identity');if(own.client_id)break;await delay(25);}assert(own.client_id,m.stderr);
+ const registered=broker.store.session(broker.b.entry,own.client_id);assert.equal(registered.metadata.project,'sandbox-shared-project');
  // These are synthetic local monitor observations, not authenticated native wake proof.
  assert.equal(own.readiness,'blocked_monitor_not_observed');
  assert.equal(own.native_injection_receipt,'not_provided_by_this_delivery_mode');

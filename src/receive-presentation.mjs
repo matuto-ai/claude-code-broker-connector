@@ -25,7 +25,12 @@ export function readableReceive(result) {
     // Indent every line after a blank separator: links, HTML and fences remain
     // literal message data. Keep the full tail even for maximum-sized messages.
     const body = literal(data.text).split('\n').map(line => `    ${line}`).join('\n');
-    const text = `Psst · new message\nFrom: ${label(data.sender.name)} · ${data.sender.client_type}\n\n${body}\n\nDetails\nSender ID: ${senderId}\nMessage ID: ${messageId}\nACK: pending — acknowledge only after reading the full message.`;
+    if ([data.sender.project, data.sender.model?.id].some(value => value !== undefined && value !== null
+      && (typeof value !== 'string' || !value.isWellFormed() || [...value].length > 256))) return null;
+    const metadata = [['Project', data.sender.project], ['Model', data.sender.model?.id]]
+      .filter(([, value]) => typeof value === 'string' && value.trim())
+      .map(([key, value]) => `\n${key}: ${label(value)}`).join('');
+    const text = `Psst · new message\nFrom: ${label(data.sender.name)} · ${data.sender.client_type}\n\n${body}\n\nDetails\nSender ID: ${senderId}\nMessage ID: ${messageId}${metadata}\nACK: pending — acknowledge only after reading the full message.`;
     return { content: [{ type: 'text', text }], structuredContent: result, isError: false };
   } catch { return null; } // Unknown/legacy shape retains its original JSON response.
 }
