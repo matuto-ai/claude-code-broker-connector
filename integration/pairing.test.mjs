@@ -61,7 +61,8 @@ for(const scenario of ['normal','broker-mismatch','persistent-store','auto-resum
   if(!['eof','sessionend'].includes(scenario)){assert.equal((await pendingConnect).error.code,'connection_cancelled');assert.equal((await call('broker_identity')).error.code,'not_connected');if(scenario==='registration-disconnect'){const retry=await call('broker_connect',{connection_file:pairfiles[0]});assert(retry.client_id,JSON.stringify(retry));await call('broker_disconnect');}child.stdin.end();}
   assert.equal(await ended,0,stderr);assert.equal(issued.length,1);
   const bundles=readdirSync(join(root,'.config','psst','enrollment'),{recursive:true}).filter(x=>x.endsWith('/connection.json'));assert.equal(bundles.length,1);
-  assert.equal((await peer.listClients({})).clients.filter(c=>c.client_type==='claude-code').length,scenario==='registration-disconnect'?1:0);return;
+  if(scenario==='registration-disconnect')assert.equal((await peer.listClients({connected:false})).clients.filter(c=>c.client_type==='claude-code').length,1);
+  assert.equal((await peer.listClients({})).clients.filter(c=>c.client_type==='claude-code').length,0,'stopped native transport is not connected');return;
  }
  if(scenario==='broker-mismatch'){
   const rejected=await call('broker_connect',{connection_file:pairfiles[0]});assert.equal(rejected.error.effect,'not_applied');assert.equal(issued.length,0);assert([...grants.values()].every(grant=>!grant.response));
@@ -85,7 +86,8 @@ for(const scenario of ['normal','broker-mismatch','persistent-store','auto-resum
   if(scenario==='resume-marker'){const value=JSON.parse(readFileSync(file));delete value.enrollment_receipt_file;writeFileSync(file,JSON.stringify(value));}else unlinkSync(file.replace(/connection.json$/,'enrollment.json'));
   await start();await delay(600);assert.equal((await call('broker_identity')).error.code,'not_connected');
   child.stdin.end();assert.equal(await ended,0,stderr);
-  assert.equal((await peer.listClients({})).clients.filter(c=>c.client_type==='claude-code').length,1);return;
+  assert.equal((await peer.listClients({connected:false})).clients.filter(c=>c.client_type==='claude-code').length,1);
+  assert.equal((await peer.listClients({})).clients.filter(c=>c.client_type==='claude-code').length,0,'failed resume must not advertise connected presence');return;
  }
  const sent=await peer.sendPrepared(peer.prepareSend({recipient_id:first.client_id,content:{type:'text/plain',text:'old credential pending'}}));let pending;for(let i=0;i<100;i++){pending=await call('broker_receive');if(pending.message)break;await delay(25);}assert.equal(pending.message_id,sent.message_id);
  assert.equal((await call('broker_connect',{connection_file:pairfiles[1]})).error.code,'disconnect_before_pairing');assert.equal(issued.length,1);
