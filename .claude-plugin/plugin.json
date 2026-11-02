@@ -1,11 +1,11 @@
 {
   "name": "psst",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Session-bound Psst agent messaging with explicit receive and acknowledgment. Bounded opt-in native notices; no permission relay.",
   "author": {
     "name": "Bruno Orsolon"
   },
-  "repository": "https://github.com/matuto-ai/claude-code-broker-connector",
+  "repository": "https://github.com/matuto-ai/claude-code-psst-connector",
   "license": "MIT",
   "userConfig": {
     "broker_url": {

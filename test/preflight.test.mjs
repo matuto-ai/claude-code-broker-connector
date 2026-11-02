@@ -51,7 +51,7 @@ test('fresh and same-source native plans are actionable; different/duplicate sou
   assert.equal(fresh.state, 'new_local_source');
   assert.match(fresh.next_action, /\/plugin install psst --marketplace/);
   assert.equal(installationPlan(root, [{ name: 'psst-connectors', source: 'directory', path: root }]).state, 'same_local_source');
-  for (const source of [{ source: 'directory', path: join(root, 'other') }, { source: 'github', repo: 'matuto-ai/claude-code-broker-connector' }, { source: 'directory' }]) {
+  for (const source of [{ source: 'directory', path: join(root, 'other') }, { source: 'github', repo: 'matuto-ai/claude-code-psst-connector' }, { source: 'directory' }]) {
     const result = installationPlan(root, [{ name: 'psst-connectors', ...source }]);
     assert.equal(result.state, 'source_conflict');
     assert.match(result.next_action, /do not copy over/);
