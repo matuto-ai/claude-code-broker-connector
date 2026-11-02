@@ -1,3 +1,25 @@
+# Verification stages
+
+`.github/workflows/verify.yaml` runs one `verify` job with five ordered stages:
+
+1. **Check source syntax**: parse source and test files without executing them.
+2. **Run local tests**: deterministic component and metadata checks (`npm run test:local`).
+3. **Verify native host and protocol integration**: local broker, HTTP/TLS and MCP/runtime fixtures (`npm run test:integration`).
+4. **Verify container persistence**: destroy and recreate real Docker containers while retaining only the approved installation volume.
+5. **Verify installable package**: pack, install offline into a temporary directory, and check the distributed entry points and metadata (`npm run test:pack`).
+
+The local, integration and package test selections are disjoint where applicable;
+`test/verify-stages.test.mjs` guards complete coverage and stable stage names.
+`npm test` retains its existing developer behavior. Docker runs separately from
+local tests. The connector-specific implementation inside each stage is not
+interchangeable with another host's API.
+
+Passing these checks does not prove authenticated native-model receipt or the
+user's actual UI. Real-client acceptance remains a separate pilot. No VM,
+production broker, real credentials or deployment is used by these checks.
+
+## Existing detailed verification reference
+
 # Verification scope
 
 ## 0.5.0 URL-only installation approval

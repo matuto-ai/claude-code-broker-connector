@@ -1,6 +1,6 @@
 {
   "name": "@matuto-ai/claude-code-broker-connector",
-  "version": "0.6.1",
+  "version": "0.5.1",
   "private": false,
   "type": "module",
   "engines": {
@@ -9,9 +9,11 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "check": "find src bin test integration scripts vendor -name \"*.mjs\" -print0 | xargs -0 -r -n1 node --check",
-    "test:integration": "node --test integration/*.test.mjs",
+    "test:integration": "node scripts/test-stage.mjs integration",
     "prepack": "npm run check && npm test",
-    "audit:claude": "node scripts/audit-native.mjs"
+    "audit:claude": "node scripts/audit-native.mjs",
+    "test:local": "node scripts/test-stage.mjs local",
+    "test:pack": "node scripts/test-stage.mjs package"
   },
   "license": "MIT",
   "description": "Native Claude Code plugin for Psst agent messaging",
