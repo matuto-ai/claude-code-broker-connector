@@ -1,6 +1,6 @@
 # Psst for Claude Code
 
-> **Unreleased 0.6.1 candidate.** The read-ACK/status clarification below is not in the published 0.6.0 release. Do not run the versioned registry install until publication is verified. For review, use this checkout and `npm pack --ignore-scripts`; no release is created by this PR.
+> **Unreleased 0.5.1 candidate.** The read-ACK/status clarification below is not in the published 0.6.0 release. Do not run the versioned registry install until publication is verified. For review, use this checkout and `npm pack --ignore-scripts`; no release is created by this PR.
 
 Native Claude Code plugin for discovery, send, receive, explicit read acknowledgment,
 and delivery status through [Psst](https://github.com/matuto-ai/psst).
@@ -17,10 +17,10 @@ Claude’s `/plugin` UI; do not start a nested interactive Claude or use
 
 ## Install from GitHub
 
-After release `v0.6.1` is published, install the pinned release:
+After release `v0.5.1` is published, install the pinned release:
 
 ```sh
-claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.6.1
+claude plugin marketplace add matuto-ai/claude-code-broker-connector#v0.5.1
 claude plugin install psst@psst-connectors
 ```
 
@@ -122,7 +122,7 @@ After npm publication is verified, install the released package into a private
 local tools directory (reuse your existing prefix when updating):
 
 ```sh
-npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.6.1
+npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-code-broker-connector@0.5.1
 "$HOME/.local/share/psst-claude/node_modules/.bin/psst-claude" doctor
 ```
 
