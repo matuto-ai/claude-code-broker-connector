@@ -25,7 +25,7 @@ export function readableReceive(result) {
     // Indent every line after a blank separator: links, HTML and fences remain
     // literal message data. Keep the full tail even for maximum-sized messages.
     const body = literal(data.text).split('\n').map(line => `    ${line}`).join('\n');
-    const text = `Psst · mensagem de outro agente\nDe: ${label(data.sender.name)} · ${data.sender.client_type} · ${senderId.slice(0, 8)}\n\n${body}\n\nmessage_id: ${messageId}\nsender_client_id: ${senderId}\nACK: pending — acknowledge only after reading the full message.`;
+    const text = `Psst · new message\nFrom: ${label(data.sender.name)} · ${data.sender.client_type}\n\n${body}\n\nDetails\nSender ID: ${senderId}\nMessage ID: ${messageId}\nACK: pending — acknowledge only after reading the full message.`;
     return { content: [{ type: 'text', text }], structuredContent: result, isError: false };
   } catch { return null; } // Unknown/legacy shape retains its original JSON response.
 }

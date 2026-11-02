@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Standardize readable native messages in English: `Psst · new message`, `From:`, and `Details` with `Sender ID` / `Message ID`. Preserve the complete body and original structured provenance; correlation remains internal.
+
 - Explain bounded native MCP recovery for missing tools, distinguishing failed, absent, connected-but-unavailable and policy-disabled states. Recheck identity and monitor status without replacing saved authorization. No change to lifecycle binding, transport, permissions or enrollment behavior; uninterrupted native session transitions remain unverified.
 
 ## 0.5.1 (unreleased)
