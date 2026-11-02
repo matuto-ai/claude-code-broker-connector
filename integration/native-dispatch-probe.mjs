@@ -59,7 +59,7 @@ try {
    const args=['--plugin-dir',plugin,'--setting-sources','','-p','--output-format','json','--model','claude-sonnet-4-6','--max-turns','3','--tools',''];
    // Permissions apply only to this account-free disposable fixture, never the user's host.
    if(mode==='deny')args.push('--disallowedTools','mcp__*');else args.push('--allowedTools','mcp__*');
-   args.push('Perform the local fixture probe once.');
+   args.push('--','Perform the local fixture probe once.');
    const result=await boundedRun(args,env,dir);
    assert.equal(result.code,0,JSON.stringify({signal:result.signal,stderr:result.stderr.slice(-1500),stdout:result.stdout.slice(-1500)}));
    const rows=existsSync(log)?readFileSync(log,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[];
