@@ -1,6 +1,6 @@
 {
   "name": "@matuto-ai/claude-code-broker-connector",
-  "version": "0.6.1",
+  "version": "0.5.1",
   "private": false,
   "type": "module",
   "engines": {
