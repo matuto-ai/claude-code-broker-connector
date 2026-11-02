@@ -121,3 +121,23 @@ test('other tools, diagnostics and explicit lower response limits are not silent
   assert.equal((await normal('broker_identity')).value.error.code,-32603);
   assert.throws(()=>serveStdio({tools:{},maxReceiveResponseBytes:NATIVE_RECEIVE_RESPONSE_BYTES+1}),/invalid_stdio_configuration/);
 });
+
+test('readable details show project and model ID but not provider', () => {
+  const e=envelope('body'); e.sender.project='sandbox-project';
+  e.sender.model={provider:'private-provider',id:'actual-model',source:'observed'};
+  const original=result(e), text=readableReceive(original).content[0].text;
+  assert(text.includes('Project: sandbox\\-project'));
+  assert(text.includes('Model: actual\\-model'));
+  assert(!text.includes('private-provider'));
+  assert(original.message.includes('private-provider'));
+});
+
+test('malformed optional display metadata retains original JSON fallback', () => {
+  for(const key of ['project','model'])for(const value of ['x'.repeat(257),'\ud800',17]){
+    const original=result(envelope('body'));
+    const split=original.message.indexOf('\n'), data=JSON.parse(original.message.slice(split+1));
+    if(key==='project')data.sender.project=value;else data.sender.model={id:value};
+    original.message=original.message.slice(0,split+1)+JSON.stringify(data);
+    assert.equal(readableReceive(original),null);
+  }
+});

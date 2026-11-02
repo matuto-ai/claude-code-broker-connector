@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- Resolve shared project labels with bounded local configuration and hide provider in readable presentation without changing model provenance.
+- Add explicitly opted-in registration v2 native-incarnation recovery. Expired identity replacement starts an empty journal and preserves old uncertain work separately. Default v1 behavior and broker enforcement remain unchanged.
+
+## Unreleased
+
 - Standardize readable native messages in English: `Psst · new message`, `From:`, and `Details` with `Sender ID` / `Message ID`. Preserve the complete body and original structured provenance; correlation remains internal.
 
 - Explain bounded native MCP recovery for missing tools, distinguishing failed, absent, connected-but-unavailable and policy-disabled states. Recheck identity and monitor status without replacing saved authorization. No change to lifecycle binding, transport, permissions or enrollment behavior; uninterrupted native session transitions remain unverified.

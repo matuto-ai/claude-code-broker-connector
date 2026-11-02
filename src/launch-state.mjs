@@ -86,7 +86,7 @@ export function applyHook(runDirectory, event) {
 }
 
 export function validateConfig(config) {
-  const allowed = ['referenceRoot', 'stateRoot', 'brokerUrl', 'tokenFile', 'caFile', 'insecureDevelopment', 'name', 'project', 'claudeBinary', 'expectedCliVersion'];
+  const allowed = ['referenceRoot', 'stateRoot', 'brokerUrl', 'tokenFile', 'caFile', 'insecureDevelopment', 'name', 'project', 'projectEnv', 'claudeBinary', 'expectedCliVersion'];
   if (!config || typeof config !== 'object' || Array.isArray(config) || Object.keys(config).some(k => !allowed.includes(k))) throw new Error('invalid_launch_configuration');
   for (const key of ['referenceRoot', 'stateRoot', 'tokenFile']) if (typeof config[key] !== 'string' || !isAbsolute(config[key])) throw new Error('invalid_launch_path');
   if (config.caFile !== undefined && !isAbsolute(config.caFile)) throw new Error('invalid_launch_path');

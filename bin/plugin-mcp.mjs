@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { projectMetadata } from '../src/project-metadata.mjs';
+import {NativeIncarnation,registrationVersion} from '../src/native-incarnation.mjs';
 import { NATIVE_RECEIVE_RESPONSE_BYTES } from '../src/receive-presentation.mjs';
 import { createToolScope } from '../src/tool-scope.mjs';
 import { deliveryStatus } from '../src/delivery-status.mjs';
@@ -15,7 +17,7 @@ import { readPrivateJson, writePrivateJson, privateDirectory } from '../src/laun
 import { verifyReference } from '../src/reference-pin.mjs';
 import { readPluginConfig, nativeStateConfig, hostDirectory, readBinding, verifyBinding, bindingModel, journalName, refreshEnrollment } from '../src/plugin-state.mjs';
 
-let toolScope,connectionAbort,recoveryPromise,server,runtime,inbox,timer,live=true,expected,directory,host,tools,connected=false,connecting=false,disabled=false,generation=0,autoAttempted=false;
+let incarnation,currentClient,expiredConfig,toolScope,connectionAbort,recoveryPromise,server,runtime,inbox,timer,live=true,expected,directory,host,tools,connected=false,connecting=false,disabled=false,generation=0,autoAttempted=false;
 let legacyConfig=null,connectedConfig=null,lastNotice=null,lastNoticeAt=0,approvalSession=null,setupContext=null,approvalTransition=null;
 const failure=(code,effect='not_applied')=>({error:{code,retryable:true,effect}});
 const bound=()=>live&&expected&&verifyBinding(directory,expected);
@@ -32,7 +34,7 @@ function monitorAttention(){
  try{const s=readPrivateJson(join(directory,'monitor-state.json'));if(s.sessionId===expected.sessionId&&s.lifetime===expected.lifetime&&s.pending_id===(inbox?.head()?.message_id??null)&&Date.now()-s.updated_at>=0&&Date.now()-s.updated_at<5000)return {attention_required:s.attention_required===true,rate_limited:s.rate_limited===true,next_retry_at:s.next_retry_at};}catch{}
  return {state:'not_observed'};
 }
-async function stop(closeSession){connected=false;status();connectionAbort?.abort();await toolScope?.close();await recoveryPromise?.catch(()=>{});recoveryPromise=null;await runtime?.stop({closeSession});inbox?.close();runtime=null;inbox=null;tools=null;}
+async function stop(closeSession){connected=false;status();connectionAbort?.abort();await toolScope?.close();await recoveryPromise?.catch(()=>{});recoveryPromise=null;await runtime?.stop({closeSession});incarnation?.close();incarnation=null;inbox=null;currentClient=null;expiredConfig=null;runtime=null;tools=null;}
 try {
  const root=dirname(dirname(fileURLToPath(import.meta.url)));verifyReference(join(root,'vendor','psst'));
  const [{Inbox,newSessionIdentity},{BrokerClient},{AdapterRuntime},{createTools},{createCooperativeInbox},{serveStdio}]=await Promise.all([
@@ -47,12 +49,12 @@ try {
    try{const b=readBinding(candidate);if(b.host.pid===host.pid&&verifyBinding(candidate,b)){directory=candidate;expected=b;return true;}}catch{}
   }return false;
  }
- async function connect(config,{allowSavedOrigin=false,validIntent=()=>true}={}){
+ async function connect(config,{allowSavedOrigin=false,validIntent=()=>true,reuseIncarnation=false}={}){
   config=refreshEnrollment(config);if(!allowSavedOrigin)config=enforceConfiguredBroker(config);
   if(connecting)return failure('connection_busy');
   if(!confirm())return failure('session_binding_unavailable');
   if(connected)return connectedConfig.brokerUrl===config.brokerUrl&&connectedConfig.tokenFile===config.tokenFile&&connectedConfig.enrollment?.credentialId===config.enrollment?.credentialId?tools.broker_identity():failure('connection_conflict');
-  if(runtime&&!connected)await stop(false);
+  if(runtime&&!connected&&!reuseIncarnation)await stop(false);
   connecting=true;disabled=false;const epoch=generation;
   try{
    const journal=privateDirectory(join(directory,journalName(expected.lifetime,config)));
@@ -60,20 +62,22 @@ try {
    // One lifetime cannot silently adopt a different broker or credential path.
    try{const old=readPrivateJson(pin);if(old.brokerUrl!==config.brokerUrl||old.tokenFile!==config.tokenFile) return failure('connection_conflict');}
    catch(e){if(e.code!=='ENOENT')throw e;writePrivateJson(pin,{brokerUrl:config.brokerUrl,tokenFile:config.tokenFile});}
-   const identityFile=join(journal,'identity.json');
-   try{writeFileSync(identityFile,JSON.stringify(newSessionIdentity('claude-code'))+'\n',{mode:0o600,flag:'wx'});}catch(e){if(e.code!=='EEXIST')throw e;}
-   const identity=readPrivateJson(identityFile);inbox=new Inbox({directory:journal,identity});
+   const selection={directory:journal,scope:{native:expected.sessionId,lifetime:expected.lifetime,broker:config.brokerUrl,tokenFile:config.tokenFile,credential:config.enrollment?.credentialId??null},registrationVersion:registrationVersion(config)};
+   if(!reuseIncarnation)incarnation=new NativeIncarnation(selection);
+   incarnation.assertSelection(selection);
+   inbox=incarnation.inbox;const identity=inbox.identity;
    connectionAbort=new AbortController();toolScope=createToolScope();
-   const client=new BrokerClient({url:config.brokerUrl,tokenFile:config.tokenFile,caFile:config.caFile,insecureDevelopment:config.insecureDevelopment===true,inbox});
-   runtime=new AdapterRuntime({client,inbox,verifySession:bound,isAlive:bound,onDiagnostic:({code})=>{if(['unauthenticated','forbidden','session_closed'].includes(code)){connected=false;status();}process.stderr.write(`psst_${code}\n`);}});
-   tools={...createTools({client,inbox,observeMetadata:()=>({model:bindingModel(readBinding(directory))})}),...createCooperativeInbox({inbox,isActive:active}),
+   const client=new BrokerClient({url:config.brokerUrl,tokenFile:config.tokenFile,caFile:config.caFile,insecureDevelopment:config.insecureDevelopment===true,inbox,registrationVersion:registrationVersion(config)});
+   currentClient=client;expiredConfig=config;
+   runtime=new AdapterRuntime({client,inbox,verifySession:bound,isAlive:bound,onDiagnostic:({code})=>{if(['unauthenticated','forbidden','session_closed','session_expired','registration_upgrade_required'].includes(code)){connected=false;status();}process.stderr.write(`psst_${code}\n`);}});
+   tools={...createTools({client,inbox,observeMetadata:()=>({model:bindingModel(readBinding(directory)),project:projectMetadata(config)})}),...createCooperativeInbox({inbox,isActive:active}),
     broker_identity:async()=>{const attention=monitorAttention();return {credential_id:config.enrollment?.credentialId??null,credential_expires_at:config.enrollment?.expiresAt??null,monitor_attention:attention,client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'native_monitor_delivery',...deliveryStatus({connected:!!active(),monitorAttention:attention})};}};
-   await runtime.start({name:config.name,project:config.project??null,model:bindingModel(expected)});
+   await runtime.start({name:config.name,project:projectMetadata(config),model:bindingModel(expected)});
    if(!bound()||generation!==epoch||disabled||!validIntent())throw Error('session_changed');
    recoveryPromise=client.recoverOutgoing({limit:10,signal:AbortSignal.any([connectionAbort.signal,AbortSignal.timeout(5000)])});
    await recoveryPromise.catch(()=>{});
    if(!bound()||generation!==epoch||disabled||!validIntent())throw Error('session_changed');connected=true;connectedConfig=config;disabled=false;writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:false,config});status();return tools.broker_identity();
-  }catch{await stop(!bound());return failure(generation!==epoch?'connection_cancelled':'connection_failed','unknown');}finally{connecting=false;}
+  }catch(error){if(error.code==='session_expired'&&bound()){connected=false;await runtime?.stop({closeSession:false});status();return failure('session_expired');}await stop(!bound());return failure(generation!==epoch?'connection_cancelled':'connection_failed','unknown');}finally{connecting=false;}
  }
  const names=['broker_list_clients','broker_send','broker_update_metadata','broker_message_status','broker_receive','broker_acknowledge','broker_identity','broker_sent_history','broker_message_content','broker_resend','broker_cancel'];
  const guarded=Object.fromEntries(names.map(name=>[name,async (args,context)=>{
@@ -167,6 +171,20 @@ try {
   }catch{return {state:'blocked',error:'invalid_saved_setup',connected:!!active(),...deliveryReadiness()};}
  };
  guarded.broker_setup_cancel=async()=>{approvalSession.cancel();if(approvalTransition&&['stopping','attaching','selecting'].includes(approvalTransition.phase))generation++;if(expected)writePrivateJson(join(directory,'setup-activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,cancelled:true});return {state:'cancelled',existing_connection_retained:!!active()};};
+ guarded.broker_recover_expired=async()=>{
+  if(connecting||pairing||approvalTransition)return failure('connection_busy');
+  if(!bound()||registrationVersion(expiredConfig??{})!==2||!currentClient?.expiredIdentityConfirmed||!incarnation||!expiredConfig)return failure('session_mismatch');
+  const epoch=generation,config=expiredConfig;connecting=true;connected=false;status();
+  try{
+   connectionAbort?.abort();await toolScope?.close();await recoveryPromise?.catch(()=>{});recoveryPromise=null;await runtime?.stop({closeSession:false});
+   const valid=()=>bound()&&generation===epoch&&!disabled;
+   if(!valid())throw Error('session_changed');
+   await incarnation.replace({client:currentClient,verifySession:valid,signal:AbortSignal.timeout(5000)});
+   if(!valid())throw Error('session_changed');
+   runtime=null;tools=null;connecting=false;
+   return await connect(config,{allowSavedOrigin:true,validIntent:valid,reuseIncarnation:true});
+  }catch{await stop(false);return failure('replacement_failed','unknown');}finally{connecting=false;}
+ };
  guarded.broker_disconnect=async()=>{approvalSession.cancel();autoAttempted=true;generation++;disabled=true;connected=false;if(expected)writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:true});status();if(connecting)void runtime?.stop({closeSession:false}).catch(()=>{});else await stop(false);return{connected:false,pending_connection_cancelled:connecting||pairing,pending_retained:true,...deliveryReadiness()};};
  server=serveStdio({tools:guarded,readableNativeReceive:true,maxReceiveResponseBytes:NATIVE_RECEIVE_RESPONSE_BYTES,onClose:async()=>{const closeSession=!bound();approvalSession?.cancel();generation++;live=false;await stop(closeSession);},onDiagnostic:()=>{}});
  // Stay available while disconnected. Never retry failed enrollment/auth indefinitely.
@@ -194,4 +212,4 @@ try {
  })().catch(()=>{live=false;void server.close();});},250);
  await server.done;
 }catch{process.stderr.write('psst_mcp_unavailable: native session/configuration check failed; no message was acknowledged.\n');process.exitCode=1;}
-finally{approvalSession?.cancel();if(timer)clearInterval(timer);live=false;await server?.close();await runtime?.stop({closeSession:true});inbox?.close();}
+finally{approvalSession?.cancel();if(timer)clearInterval(timer);live=false;await server?.close();await runtime?.stop({closeSession:true});incarnation?.close();}
