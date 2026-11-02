@@ -105,10 +105,14 @@ reports only the local monitor observation; it does not certify task execution.
 See the [response-field mapping](docs/automatic-delivery.md#read-ack-and-status-fields)
 for older diagnostic consumers.
 
-A new Claude process creates a new broker identity. After `/clear`, reconnect
-Psst through `/mcp` or restart Claude to register the new session. Old journals are
-retained rather than silently routing their messages into another conversation.
-No automatic replay into a different session is performed.
+A new native session receives its own broker identity. The native MCP transport
+stays available while a verified `/clear`/`/new` transition retires the old runtime
+and attaches the new lifetime using saved approved configuration. A same-lifetime
+compact retains the identity and inbox. Old journals and uncertain work stay with
+their original lifetime; no cross-session replay or implicit enrollment occurs.
+If native tools are missing, use the bounded `/mcp` recovery above rather than
+starting a second server. Monitor availability is checked independently.
+See [native lifetime boundaries](docs/native-lifetime.md) for validation scope.
 
 Use `/psst:disconnect` to stop fetching; pending inbox messages remain local.
 An explicit reconnect within the same native lifetime resumes them. Broker
@@ -213,3 +217,21 @@ message or guarantee an always-open card. See [format, compatibility and limits]
 ## Verification
 
 See [the five verification stages](docs/verification.md) for what the shared `verify` job checks and what still needs a real-client pilot.
+
+### Shared project label
+
+The project label is descriptive metadata, not a routing or authorization field.
+The connector reads only `AI_AGENTS_SANDBOX_PROJECT_NAME` by default. To select a
+different local environment variable, set `PSST_PROJECT_ENV=MY_PROJECT_LABEL`.
+This option contains the variable **name**, not its value; never select a secret.
+Where a local connector configuration object is supported, `projectEnv` supplies
+the same selector; `PSST_PROJECT_ENV` overrides it. An explicit nonempty `project`
+label takes precedence. No credential/enrollment bundle fields are changed.
+Labels must be well-formed, at most 256 characters, and contain no control/bidi
+characters. Missing/blank values use a native directory basename where available,
+otherwise remain unknown; absolute paths and the complete environment are not sent.
+
+Model metadata continues to come from the native host, not the project setting.
+Readable presentation shows model ID and project, not the provider; protocol and
+stored provenance remain unchanged. This common configuration is being rolled out
+across connectors; Antigravity adoption remains pending, not implemented here.

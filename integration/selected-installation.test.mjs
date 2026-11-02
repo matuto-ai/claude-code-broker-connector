@@ -1,3 +1,4 @@
+import {fixtureHook as pluginHook} from './native-fixture-permit.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,rmSync,writeFileSync,mkdirSync,readFileSync} from 'node:fs';
@@ -14,7 +15,7 @@ test('one in-session selection survives fresh HOME; 30 native hosts auto-connect
  const configDir=join(root,'durable-claude'),store=join(configDir,'psst');mkdirSync(store,{recursive:true,mode:0o700});
  const file=join(store,'connection.json'),token=join(store,'token');writeFileSync(token,b.b.token,{mode:0o600});
  writeFileSync(file,JSON.stringify({brokerUrl:b.base,tokenFile:token,stateRoot:join(store,'old-state'),name:'shared-installation',insecureDevelopment:true}),{mode:0o600});
- const host=join(root,'host.mjs');writeFileSync(host,`import {spawn} from 'node:child_process';import {randomUUID} from 'node:crypto';import {pluginHook,nativeStateConfig} from ${JSON.stringify(pathToFileURL(resolve('src/plugin-state.mjs')).href)};import {processIdentity} from ${JSON.stringify(pathToFileURL(resolve('src/launch-state.mjs')).href)};const session=randomUUID(),owner=processIdentity(process.pid);pluginHook(nativeStateConfig(),{hook_event_name:'SessionStart',session_id:session},owner);const m=spawn(process.execPath,[${JSON.stringify(resolve('bin/plugin-mcp.mjs'))}],{stdio:'inherit'});m.on('exit',code=>{pluginHook(nativeStateConfig(),{hook_event_name:'SessionEnd',session_id:session},owner);process.exitCode=code;});`);
+ const host=resolve('integration/native-host.mjs');
  let counter=0;
  async function start({legacyDefault=false,overrideUrl=null}={}){
   const home=join(root,`ephemeral-${++counter}`);mkdirSync(home,{mode:0o700});

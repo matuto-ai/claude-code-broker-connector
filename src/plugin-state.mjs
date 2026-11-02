@@ -26,7 +26,7 @@ export function readPluginConfig(path = configPath()) {
   if (!isAbsolute(path)) throw new Error('absolute_config_path_required');
   let config = readPrivateJson(path), enrollment;
   if (config?.format === 'broker-client-bundle-v1') {
-    const allowed = ['format','protocol_version','broker_url','token_file','file_paths_relative_to','authorization_header','authorization_scheme','insecure_development','allowed_client_types','scope','ca_file','expires_at','enrollment_receipt_file'];
+    const allowed = ['format','protocol_version','broker_url','token_file','file_paths_relative_to','authorization_header','authorization_scheme','insecure_development','allowed_client_types','scope','ca_file','expires_at','enrollment_receipt_file','registration_version'];
     if (Object.keys(config).some(key => !allowed.includes(key)) || config.protocol_version !== '1' || config.file_paths_relative_to !== 'connection_file_directory' || config.authorization_header !== 'Authorization' || config.authorization_scheme !== 'Bearer' || config.insecure_development !== false || !Array.isArray(config.allowed_client_types) || config.allowed_client_types.length !== 1 || config.allowed_client_types[0] !== 'claude-code' || typeof config.token_file !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(config.token_file) || !safeText(config.scope,128) || (config.ca_file !== undefined && (typeof config.ca_file !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(config.ca_file))) || (config.expires_at !== undefined && (!Number.isFinite(Date.parse(config.expires_at)) || Date.parse(config.expires_at) <= Date.now()))) throw new Error('incompatible_client_bundle');
     if(config.enrollment_receipt_file===undefined){
       try{lstatSync(join(dirname(path),'enrollment.json'));throw Error('missing_enrollment_marker');}catch(error){if(error.code!=='ENOENT')throw error;}
@@ -35,10 +35,13 @@ export function readPluginConfig(path = configPath()) {
       if(config.enrollment_receipt_file!=='enrollment.json')throw Error('incompatible_client_bundle');
       enrollment={connectionFile:path,...readEnrollmentReceipt({connectionFile:path,clientType:'claude-code'})};
     }
+    if(config.registration_version!==undefined&&![1,2].includes(config.registration_version))throw Error('invalid_registration_version');
+    const version=config.registration_version??1;
     const root = dirname(path);
-    config = { brokerUrl: config.broker_url, tokenFile: resolve(root, config.token_file), stateRoot: join(root, 'state'), name: 'claude-code', project: null, ...(config.ca_file ? {caFile:resolve(root,config.ca_file)}:{}), ...(config.insecure_development === true ? {insecureDevelopment:true}:{}) };
+    config = { registrationVersion:version, brokerUrl: config.broker_url, tokenFile: resolve(root, config.token_file), stateRoot: join(root, 'state'), name: 'claude-code', project: null, ...(config.ca_file ? {caFile:resolve(root,config.ca_file)}:{}), ...(config.insecure_development === true ? {insecureDevelopment:true}:{}) };
   }
-  if (!config || Array.isArray(config) || Object.keys(config).some(k => !['brokerUrl','tokenFile','stateRoot','name','project','caFile','insecureDevelopment'].includes(k))) throw new Error('invalid_plugin_config');
+  if (!config || Array.isArray(config) || Object.keys(config).some(k => !['brokerUrl','tokenFile','stateRoot','name','project','projectEnv','caFile','insecureDevelopment','registrationVersion'].includes(k))) throw new Error('invalid_plugin_config');
+  if(config.registrationVersion!==undefined&&![1,2].includes(config.registrationVersion))throw Error('invalid_registration_version');
   for (const field of ['tokenFile','stateRoot']) if (typeof config[field] !== 'string' || !isAbsolute(config[field])) throw new Error('absolute_config_path_required');
   if (config.caFile !== undefined && (typeof config.caFile !== 'string' || !isAbsolute(config.caFile))) throw new Error('absolute_config_path_required');
   if (!safeText(config.name,128) || (config.project !== undefined && config.project !== null && !safeText(config.project,256))) throw new Error('invalid_plugin_metadata');

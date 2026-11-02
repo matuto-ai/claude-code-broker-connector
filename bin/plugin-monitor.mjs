@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 // Native plugin monitor, not a second broker client. No token or inbox body is read.
+import {resolveNativeBinding,isNativeBindingCurrent} from '../src/native-binding.mjs';
+import {selectedConfig} from '../src/installation-selection.mjs';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { processIdentity, readPrivateJson, writePrivateJson } from '../src/launch-state.mjs';
@@ -9,19 +11,18 @@ try {
  // Claude's native shell launcher supplies both. Never infer a session from a name or arbitrary journal.
  const pid=Number(process.env.CLAUDE_PID),sessionId=process.env.CLAUDE_CODE_SESSION_ID;
  if(!Number.isSafeInteger(pid)||pid<1||!sessionId)throw Error('native_monitor_context_missing');
- const host=processIdentity(pid),candidates=[];
- try{candidates.push(hostDirectory(readPluginConfig(),host).directory);}catch{}
- candidates.push(hostDirectory(nativeStateConfig(process.env,host,sessionId),host).directory);
+ const host=processIdentity(pid),nativeConfig=nativeStateConfig(process.env,host,sessionId);
+ let legacyConfig=null;try{legacyConfig=(process.env.PSST_CLAUDE_CONFIG||process.env.PSST_CONFIG_FILE)?readPluginConfig():(selectedConfig()??readPluginConfig());}catch{}
  let expected,directory;
  // Native always-start monitors may precede the SessionStart hook. Wait only for
  // this exact native owner/session; never create a binding or infer another one.
  for(let attempt=0;attempt<100&&!expected;attempt++){
-  for(const candidate of candidates){try{const b=readBinding(candidate);if(b.sessionId===sessionId&&b.host.pid===pid&&verifyBinding(candidate,b)){expected=b;directory=candidate;break;}}catch{}}
+  try{const found=resolveNativeBinding({nativeConfig,legacyConfig,host,sessionId});if(found){expected=found.binding;directory=found.directory;}}catch{}
   if(!expected){const actual=processIdentity(pid);if(actual.start!==host.start||actual.boot!==host.boot)break;await delay(100);}
  }
  if(!expected)throw Error('native_monitor_binding_missing');
  const budget=noticeBudget();
- while(verifyBinding(directory,expected)){
+ while(isNativeBindingCurrent({nativeConfig,directory,binding:expected,host})){
   try{
    const status=readPrivateJson(join(directory,'notice.json'));
    if(status.sessionId===sessionId&&status.lifetime===expected.lifetime&&status.host?.pid===pid&&status.host?.start===host.start&&status.host?.boot===host.boot&&Date.now()-status.updated_at>=0&&Date.now()-status.updated_at<5000&&budget.next(status)){

@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: matuto-ai/psst
-          ref: 72f5d2d1b834e02cfb6b2f7dc11c6f1a55729344
+          ref: f32ddc79ec7b812062ed3f6de7b9a0c12a7128f3
           path: ai-agent-msg-broker
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -37,8 +37,10 @@ jobs:
           PSST_TEST_DOCKER=psst-claude-fixture:local node --test integration/container-approval.test.mjs
           docker build -f integration/NativeContainerfile -t psst-claude-native-probe:local .
           native_container="psst-native-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          trap 'docker rm -f "$native_container" >/dev/null 2>&1 || true' EXIT
+          lifecycle_container="psst-lifecycle-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'docker rm -f "$native_container" "$lifecycle_container" >/dev/null 2>&1 || true' EXIT
           timeout --kill-after=5s 100s docker run --name "$native_container" --rm --network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp:rw,nosuid,size=128m psst-claude-native-probe:local
+          timeout --kill-after=5s 100s docker run --name "$lifecycle_container" --rm --network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp:rw,nosuid,size=128m -v "$PWD/../ai-agent-msg-broker:/opt/psst:ro" -e PSST_TEST_ROOT=/opt/psst psst-claude-native-probe:local node /opt/connector/integration/native-lifecycle-probe.mjs
         working-directory: claude-code-review-pair
       - name: Verify installable package
         run: npm run test:pack

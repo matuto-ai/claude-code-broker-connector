@@ -1,3 +1,4 @@
+import {fixtureHook as pluginHook} from './native-fixture-permit.mjs';
 // Real TLS broker + synthetic enrollment handler/native parent; not vendor or production issuance certification.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +12,8 @@ import {fixture} from '../../ai-agent-msg-broker/test/helpers.mjs';
 import {createBrokerServer} from '../../ai-agent-msg-broker/src/server.mjs';
 import {Inbox,newSessionIdentity} from '../vendor/psst/reference/inbox.mjs';
 import {BrokerClient} from '../vendor/psst/reference/client.mjs';
-import {pluginHook} from '../src/plugin-state.mjs';
+import {fixtureArguments} from './native-fixture-permit.mjs';
+import {} from '../src/plugin-state.mjs';
 import {processIdentity} from '../src/launch-state.mjs';
 for(const scenario of ['normal','broker-mismatch','persistent-store','auto-resume-race','disconnect','eof','sessionend','registration-disconnect','resume-marker','resume-receipt'])test(`private pairing TLS fixture: ${scenario}`,  {timeout:30000},async t=>{
  const root=mkdtempSync(join(tmpdir(),'claude-pairing-tls-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
@@ -45,23 +47,24 @@ for(const scenario of ['normal','broker-mismatch','persistent-store','auto-resum
  const durable=scenario==='persistent-store';
  const peerInbox=new Inbox({directory:join(root,'peer'),identity:newSessionIdentity('pi')});t.after(()=>peerInbox.close());const token=join(root,'peer-token');writeFileSync(token,f.a.token,{mode:0o600});const peer=new BrokerClient({url,tokenFile:token,caFile:cert,inbox:peerInbox});await peer.register({name:'peer',model:{provider:null,id:null,source:'unknown'},project:null});
  const sessionId=randomUUID(),binding={stateRoot:join(root,'.config','psst','native')};pluginHook(binding,{hook_event_name:'SessionStart',session_id:sessionId},processIdentity(process.pid));
- let child,ended,call,stdout,stderr;
+ let child,ended,call,stdout,stderr,activeBinding=binding,activeSession=sessionId;
  let selectedHome=root;const durableConfig=join(root,'durable-claude');
  async function start(){
  child=spawn(process.execPath,[...scenario==='auto-resume-race'?['--import',preload]:[],'bin/plugin-mcp.mjs'],{env:{...process.env,HOME:selectedHome,PSST_CLAUDE_CONFIG:durable?'':join(root,'absent'),PSST_CONFIG_FILE:'',NODE_EXTRA_CA_CERTS:cert,...(durable?{CLAUDE_CONFIG_DIR:durableConfig}:{}),...(scenario==='broker-mismatch'?{PSST_PLUGIN_BROKER_URL:'https://wrong-broker.invalid'}:{})},stdio:['pipe','pipe','pipe']});t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});ended=new Promise(r=>child.once('exit',r));stdout='';stderr='';let buffer='',id=0;const waiters=new Map();child.stderr.on('data',c=>stderr+=c);child.stdout.on('data',c=>{stdout+=c;buffer+=c;while(buffer.includes('\n')){const n=buffer.indexOf('\n'),r=JSON.parse(buffer.slice(0,n));buffer=buffer.slice(n+1);waiters.get(r.id)?.(r);waiters.delete(r.id);}});
  const ask=(method,params)=>new Promise(r=>{const next=++id;waiters.set(next,r);child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:next,method,params})+'\n');});
  await ask('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'fixture',version:'0'}});child.stdin.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');
- call=async(name,args={})=>{const r=await ask('tools/call',{name,arguments:args});assert(!r.error,JSON.stringify(r));return r.result.structuredContent ?? JSON.parse(r.result.content[0].text);};
+ call=async(name,args={})=>{const r=await ask('tools/call',{name,arguments:fixtureArguments({config:activeBinding,sessionId:activeSession,name,args})});assert(!r.error,JSON.stringify(r));return r.result.structuredContent ?? JSON.parse(r.result.content[0].text);};
  }
  await start();
  if(['disconnect','eof','sessionend','registration-disconnect'].includes(scenario)){
-  const pendingConnect=call('broker_connect',{connection_file:pairfiles[0]});await issuanceStarted;
+  const pendingConnect=call('broker_connect',{connection_file:pairfiles[0]});void pendingConnect.catch(()=>{});await issuanceStarted;
   if(!['eof','sessionend'].includes(scenario)){const stopped=await call('broker_disconnect');assert.equal(stopped.connected,false);assert.equal(stopped.pending_connection_cancelled,true);}else if(scenario==='eof')child.stdin.end();else pluginHook(binding,{hook_event_name:'SessionEnd',session_id:sessionId},processIdentity(process.pid));
-  releaseIssuance();
+  releaseIssuance();if(scenario==='sessionend'){await assert.rejects(pendingConnect,/Native session changed/);child.stdin.end();}
   if(!['eof','sessionend'].includes(scenario)){assert.equal((await pendingConnect).error.code,'connection_cancelled');assert.equal((await call('broker_identity')).error.code,'not_connected');if(scenario==='registration-disconnect'){const retry=await call('broker_connect',{connection_file:pairfiles[0]});assert(retry.client_id,JSON.stringify(retry));await call('broker_disconnect');}child.stdin.end();}
   assert.equal(await ended,0,stderr);assert.equal(issued.length,1);
   const bundles=readdirSync(join(root,'.config','psst','enrollment'),{recursive:true}).filter(x=>x.endsWith('/connection.json'));assert.equal(bundles.length,1);
-  assert.equal((await peer.listClients({})).clients.filter(c=>c.client_type==='claude-code').length,scenario==='registration-disconnect'?1:0);return;
+  if(scenario==='registration-disconnect')assert.equal((await peer.listClients({connected:false})).clients.filter(c=>c.client_type==='claude-code').length,1);
+  assert.equal((await peer.listClients({})).clients.filter(c=>c.client_type==='claude-code').length,0,'stopped native transport is not connected');return;
  }
  if(scenario==='broker-mismatch'){
   const rejected=await call('broker_connect',{connection_file:pairfiles[0]});assert.equal(rejected.error.effect,'not_applied');assert.equal(issued.length,0);assert([...grants.values()].every(grant=>!grant.response));
@@ -74,10 +77,10 @@ for(const scenario of ['normal','broker-mismatch','persistent-store','auto-resum
   child.stdin.end();assert.equal(await ended,0,stderr);
   for(const file of pairfiles)unlinkSync(file); // Initial one-use inputs are not needed again.
   selectedHome=join(root,'replacement-home');const newBinding={stateRoot:join(selectedHome,'.config','psst','native')},newSession=randomUUID();
-  pluginHook(newBinding,{hook_event_name:'SessionStart',session_id:newSession},processIdentity(process.pid));
+  pluginHook(newBinding,{hook_event_name:'SessionStart',session_id:newSession},processIdentity(process.pid));activeBinding=newBinding;activeSession=newSession;
   await start();let auto;for(let i=0;i<100;i++){auto=await call('broker_identity');if(auto.client_id)break;await delay(25);}
   assert(auto.client_id,JSON.stringify(auto));assert.notEqual(auto.client_id,first.client_id);assert.equal(auto.credential_id,first.credential_id);assert.equal(issued.length,1);
-  pluginHook(newBinding,{hook_event_name:'SessionEnd',session_id:newSession},processIdentity(process.pid));assert.equal(await ended,0,stderr);return;
+  pluginHook(newBinding,{hook_event_name:'SessionEnd',session_id:newSession},processIdentity(process.pid));child.stdin.end();assert.equal(await ended,0,stderr);return;
  }
  if(scenario.startsWith('resume-')){
   child.stdin.end();assert.equal(await ended,0,stderr);
@@ -85,7 +88,8 @@ for(const scenario of ['normal','broker-mismatch','persistent-store','auto-resum
   if(scenario==='resume-marker'){const value=JSON.parse(readFileSync(file));delete value.enrollment_receipt_file;writeFileSync(file,JSON.stringify(value));}else unlinkSync(file.replace(/connection.json$/,'enrollment.json'));
   await start();await delay(600);assert.equal((await call('broker_identity')).error.code,'not_connected');
   child.stdin.end();assert.equal(await ended,0,stderr);
-  assert.equal((await peer.listClients({})).clients.filter(c=>c.client_type==='claude-code').length,1);return;
+  assert.equal((await peer.listClients({connected:false})).clients.filter(c=>c.client_type==='claude-code').length,1);
+  assert.equal((await peer.listClients({})).clients.filter(c=>c.client_type==='claude-code').length,0,'failed resume must not advertise connected presence');return;
  }
  const sent=await peer.sendPrepared(peer.prepareSend({recipient_id:first.client_id,content:{type:'text/plain',text:'old credential pending'}}));let pending;for(let i=0;i<100;i++){pending=await call('broker_receive');if(pending.message)break;await delay(25);}assert.equal(pending.message_id,sent.message_id);
  assert.equal((await call('broker_connect',{connection_file:pairfiles[1]})).error.code,'disconnect_before_pairing');assert.equal(issued.length,1);
@@ -93,5 +97,5 @@ for(const scenario of ['normal','broker-mismatch','persistent-store','auto-resum
  await call('broker_disconnect');const resumed=await call('broker_connect',{connection_file:pairfiles[0]});assert.equal(resumed.client_id,first.client_id);assert.equal((await call('broker_receive')).message_id,pending.message_id);assert.equal(issued.length,2);
  const tokens=readdirSync(join(root,'.config','psst','enrollment'),{recursive:true}).filter(x=>x.endsWith('/token')).map(x=>readFileSync(join(root,'.config','psst','enrollment',x),'utf8').trim());
  for(const secret of [...grants.keys()].map(x=>x.slice(8)).concat(tokens)){assert(!stdout.includes(secret));assert(!stderr.includes(secret));}
- pluginHook(binding,{hook_event_name:'SessionEnd',session_id:sessionId},processIdentity(process.pid));assert.equal(await ended,0,stderr);
+ pluginHook(binding,{hook_event_name:'SessionEnd',session_id:sessionId},processIdentity(process.pid));child.stdin.end();assert.equal(await ended,0,stderr);
 });
