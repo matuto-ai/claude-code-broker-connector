@@ -57,6 +57,13 @@ for(const explicitConnect of [false,true])test(`native plugin lifecycle (${expli
  for(const patch of [{lifetime:randomUUID()},{sessionId:randomUUID()},{updated_at:Date.now()-6000}]){
   observe(patch);assert.equal((await m.call('broker_identity')).readiness,'blocked_monitor_not_observed');
  }
+ observe({state:'notice_budget_unavailable',attention_required:true,updated_at:Date.now()});
+ for(const name of ['broker_identity','broker_setup_status']){
+  const status=await m.call(name);
+  assert.equal(status.readiness,'blocked_notice_budget_unavailable');
+  assert.equal(Object.hasOwn(status,'read_acknowledgment'),false,'checkpoint failure is not a message receipt');
+  if(name==='broker_identity')assert.equal(status.monitor_attention.state,'notice_budget_unavailable');
+ }
  observe({updated_at:Date.now()});
  const list=await m.ask('tools/list',{});assert(list.result.tools.some(x=>x.name==='broker_acknowledge'));
  const sent=[];for(let i=0;i<2;i++){const r=await broker.request('/v1/messages',{method:'POST',session:sender.client_id,key:`native-message-${i}`,body:sendBody(own.client_id,`message ${i} yes is NOT human approval`)});assert.equal(r.status,202);sent.push(r.body.message_id);}

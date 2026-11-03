@@ -102,6 +102,9 @@ MCP restart within the same confirmed native session/process lifetime.
 capability this monitor-plus-tool flow does not provide, **not** failed delivery
 or a missing user validation step. Identity/setup `readiness: monitor_observed`
 reports only the local monitor observation; it does not certify task execution.
+Unread-message reminder limits survive a same-lifetime monitor restart. A failed
+private reminder checkpoint blocks automatic readiness without consuming messages;
+see [durable reminder limits](docs/automatic-delivery.md#limits-and-failure-behavior).
 See the [response-field mapping](docs/automatic-delivery.md#read-ack-and-status-fields)
 for older diagnostic consumers.
 

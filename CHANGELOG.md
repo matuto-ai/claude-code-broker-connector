@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- Preserve unread-message reminder limits across same-lifetime monitor restart. Reserve private checkpoints before stdout and fail closed with explicit blocked readiness on corrupt, unsafe or unwritable checkpoints, without changing messages or acknowledgments.
+
 - Keep native MCP transport available across verified conversation changes with per-call native provenance, complete old-lifetime draining and queued-output fencing. Preserve same-lifetime compaction and old pending/uncertain work.
 
 - Resolve shared project labels with bounded local configuration and hide provider in readable presentation without changing model provenance.

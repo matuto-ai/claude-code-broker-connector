@@ -41,7 +41,7 @@ function status(){
  writePrivateJson(join(directory,'notice.json'),{...value,updated_at:now});lastNotice=key;lastNoticeAt=now;
 }
 function monitorAttention(){
- try{const s=readPrivateJson(join(directory,'monitor-state.json'));if(s.sessionId===expected.sessionId&&s.lifetime===expected.lifetime&&s.pending_id===(inbox?.head()?.message_id??null)&&Date.now()-s.updated_at>=0&&Date.now()-s.updated_at<5000)return {attention_required:s.attention_required===true,rate_limited:s.rate_limited===true,next_retry_at:s.next_retry_at};}catch{}
+ try{const s=readPrivateJson(join(directory,'monitor-state.json'));if(s.sessionId===expected.sessionId&&s.lifetime===expected.lifetime&&s.pending_id===(inbox?.head()?.message_id??null)&&Date.now()-s.updated_at>=0&&Date.now()-s.updated_at<5000)return {...(s.state==='notice_budget_unavailable'?{state:s.state}:{}),attention_required:s.attention_required===true,rate_limited:s.rate_limited===true,next_retry_at:s.next_retry_at};}catch{}
  return {state:'not_observed'};
 }
 async function stop(closeSession){connected=false;status();connectionAbort?.abort();await notices?.stop();notices=null;await toolScope?.close();await recoveryPromise?.catch(()=>{});recoveryPromise=null;await runtime?.stop({closeSession});incarnation?.close();incarnation=null;inbox=null;currentClient=null;expiredConfig=null;runtime=null;tools=null;}

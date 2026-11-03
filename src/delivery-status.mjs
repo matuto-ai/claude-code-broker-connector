@@ -6,7 +6,8 @@ export function deliveryStatus({ connected, monitorAttention }) {
   return {
     mode: 'automatic_required',
     readiness: !connected ? 'not_connected'
-      : monitorAttention.state === 'not_observed' ? 'blocked_monitor_not_observed' : 'monitor_observed',
+      : monitorAttention.state === 'not_observed' ? 'blocked_monitor_not_observed'
+      : monitorAttention.state === 'notice_budget_unavailable' ? 'blocked_notice_budget_unavailable' : 'monitor_observed',
     automatic_wakeup: 'bounded_monitor_when_interactive',
     read_acknowledgment_mode: 'explicit_model_read',
     native_injection_receipt: NATIVE_INJECTION_RECEIPT,
