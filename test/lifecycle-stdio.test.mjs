@@ -40,3 +40,17 @@ test('agent instructions separate completed read ACK from unavailable native tra
  assert.match(TOOL_DEFINITIONS.find(x=>x.name==='broker_identity').description,/not a per-message read receipt/);
  assert.match(TOOL_DEFINITIONS.find(x=>x.name==='broker_receive').description,/unavailable capability, not failed delivery/);
 });
+
+test('presence MCP tools validate exact explicit event ACK without caller cursors or retry IDs',async t=>{
+ const eventId='11111111-1111-4111-8111-111111111111',seen=[];
+ const f=rpc({broker_presence_events:async args=>{seen.push(args);return {events:[],supported:true};},broker_acknowledge_presence_event:async args=>{seen.push(args);return {event_id:args.event_id,acknowledged:true};}});
+ t.after(()=>f.server.close());await f.ready();
+ assert.equal(TOOL_DEFINITIONS.find(d=>d.name==='broker_presence_events').inputSchema.additionalProperties,false);
+ for(const [name,args] of [['broker_presence_events',{cursor:'1'}],['broker_acknowledge_presence_event',{}],['broker_acknowledge_presence_event',{event_id:'wrong'}]]){
+  assert.equal((await f.call('tools/call',{name,arguments:args})).error.code,-32602);
+ }
+ assert.equal(seen.length,0);
+ assert.equal((await f.call('tools/call',{name:'broker_presence_events',arguments:{}})).result.isError,false);
+ assert.equal((await f.call('tools/call',{name:'broker_acknowledge_presence_event',arguments:{event_id:eventId}})).result.isError,false);
+ assert.deepEqual(seen,[{},{event_id:eventId}]);
+});

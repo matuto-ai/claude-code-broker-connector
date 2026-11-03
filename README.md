@@ -238,3 +238,12 @@ Model metadata continues to come from the native host, not the project setting.
 Readable presentation shows model ID and project, not the provider; protocol and
 stored provenance remain unchanged. This common configuration is being rolled out
 across connectors; Antigravity adoption remains pending, not implemented here.
+
+## Offline-delivery transport notices
+
+On compatible Psst brokers, the native monitor also announces prolonged-offline
+pending delivery. Read `broker_presence_events`, then explicitly acknowledge the
+exact event IDs you read with `broker_acknowledge_presence_event`. Notices contain
+only transport metadata, never message bodies or a reply deadline. They do not
+resend, cancel, close, or acknowledge any message automatically. See the
+[durable bounds, recovery and validation limits](docs/presence-notices.md).
