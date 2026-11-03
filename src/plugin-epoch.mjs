@@ -3,6 +3,7 @@ import { projectMetadata } from './project-metadata.mjs';
 import {NativeIncarnation,registrationVersion} from './native-incarnation.mjs';
 import { createToolScope } from './tool-scope.mjs';
 import { deliveryStatus } from './delivery-status.mjs';
+import { PresenceNotices } from './presence-notices.mjs';
 import { installationRoot, readSelection, saveSelection, configuredBrokerUrl, enforceConfiguredBroker } from './installation-selection.mjs';
 import { connectPairingFile } from './enrollment-support.mjs';
 import {switchApproved} from './approval-attachment.mjs';
@@ -20,6 +21,7 @@ export function createPluginEpoch({directory,host,binding:expected,nativeConfig,
  const lifetimeScope=createToolScope();
  let retiring=null,ticking=null,revoked=false;
 let incarnation,currentClient,expiredConfig,toolScope,connectionAbort,recoveryPromise,runtime,inbox,live=true,tools,connected=false,connecting=false,disabled=false,generation=0,autoAttempted=false;
+let notices=null;
 let connectedConfig=null,lastNotice=null,lastNoticeAt=0,approvalSession=null,setupContext=null,approvalTransition=null;
 const failure=(code,effect='not_applied')=>({error:{code,retryable:true,effect}});
 const bound=()=>{if(!live||revoked)return false;if(!verifyBinding(directory,expected)||!isNativeBindingCurrent({nativeConfig,directory,binding:expected,host})){revoked=true;return false;}return true;};
@@ -33,7 +35,7 @@ const ended=()=>{
 function status(){
  if(!directory||!expected)return;
  const head=connected&&inbox?inbox.head():null;
- const value={host,sessionId:expected.sessionId,lifetime:expected.lifetime,connected:!!active(),pending_id:head?.state==='pending'?head.message_id:null,setup_state:approvalSession?.status?.state??null,setup_connected:approvalSession?.status?.connected===true};
+ const value={host,sessionId:expected.sessionId,lifetime:expected.lifetime,connected:!!active(),pending_id:head?.state==='pending'?head.message_id:null,presence_event_id:notices?.pendingId()??null,setup_state:approvalSession?.status?.state??null,setup_connected:approvalSession?.status?.connected===true};
  const key=JSON.stringify(value),now=Date.now();
  if(key===lastNotice&&now-lastNoticeAt<2000)return;
  writePrivateJson(join(directory,'notice.json'),{...value,updated_at:now});lastNotice=key;lastNoticeAt=now;
@@ -42,7 +44,7 @@ function monitorAttention(){
  try{const s=readPrivateJson(join(directory,'monitor-state.json'));if(s.sessionId===expected.sessionId&&s.lifetime===expected.lifetime&&s.pending_id===(inbox?.head()?.message_id??null)&&Date.now()-s.updated_at>=0&&Date.now()-s.updated_at<5000)return {attention_required:s.attention_required===true,rate_limited:s.rate_limited===true,next_retry_at:s.next_retry_at};}catch{}
  return {state:'not_observed'};
 }
-async function stop(closeSession){connected=false;status();connectionAbort?.abort();await toolScope?.close();await recoveryPromise?.catch(()=>{});recoveryPromise=null;await runtime?.stop({closeSession});incarnation?.close();incarnation=null;inbox=null;currentClient=null;expiredConfig=null;runtime=null;tools=null;}
+async function stop(closeSession){connected=false;status();connectionAbort?.abort();await notices?.stop();notices=null;await toolScope?.close();await recoveryPromise?.catch(()=>{});recoveryPromise=null;await runtime?.stop({closeSession});incarnation?.close();incarnation=null;inbox=null;currentClient=null;expiredConfig=null;runtime=null;tools=null;}
  const confirm=()=>bound();
  async function connect(config,{allowSavedOrigin=false,validIntent=()=>true,reuseIncarnation=false}={}){
   config=refreshEnrollment(config);if(!allowSavedOrigin)config=enforceConfiguredBroker(config);
@@ -64,8 +66,11 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
    connectionAbort=new AbortController();toolScope=createToolScope();
    const client=new BrokerClient({url:config.brokerUrl,tokenFile:config.tokenFile,caFile:config.caFile,insecureDevelopment:config.insecureDevelopment===true,inbox,registrationVersion:registrationVersion(config)});
    currentClient=client;expiredConfig=config;
+   notices=new PresenceNotices({client,inbox,isAlive:active,signal:connectionAbort.signal,diagnostic:()=>{}});
    runtime=new AdapterRuntime({client,inbox,verifySession:bound,isAlive:bound,closeOnLostSession:false,onDiagnostic:({code})=>{if(['unauthenticated','forbidden','session_closed','session_expired','registration_upgrade_required'].includes(code)){connected=false;status();}process.stderr.write(`psst_${code}\n`);}});
    tools={...createTools({client,inbox,observeMetadata:()=>{const observed=readBinding(directory);if(!bound()||observed.sessionId!==expected.sessionId||observed.lifetime!==expected.lifetime)throw Error('session_changed');return {model:bindingModel(observed),project:projectMetadata(config)};}}),...createCooperativeInbox({inbox,isActive:active}),
+    broker_presence_events:()=>notices.read(),
+    broker_acknowledge_presence_event:({event_id})=>notices.acknowledge(event_id),
     broker_identity:async()=>{const attention=monitorAttention();return {credential_id:config.enrollment?.credentialId??null,credential_expires_at:config.enrollment?.expiresAt??null,monitor_attention:attention,client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'native_monitor_delivery',...deliveryStatus({connected:!!active(),monitorAttention:attention})};}};
    await runtime.start({name:config.name,project:projectMetadata(config),model:bindingModel(expected)});
    if(!bound()||generation!==epoch||disabled||!validIntent())throw Error('session_changed');
@@ -74,7 +79,7 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
    if(!bound()||generation!==epoch||disabled||!validIntent())throw Error('session_changed');connected=true;connectedConfig=config;disabled=false;writePrivateJson(join(directory,'activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,disabled:false,config});status();return tools.broker_identity();
   }catch(error){if(error.code==='session_expired'&&bound()){connected=false;await runtime?.stop({closeSession:false});status();return failure('session_expired');}await stop(ended());return failure(generation!==epoch?'connection_cancelled':'connection_failed','unknown');}finally{connecting=false;}
  }
- const names=['broker_list_clients','broker_send','broker_update_metadata','broker_message_status','broker_receive','broker_acknowledge','broker_identity','broker_sent_history','broker_message_content','broker_resend','broker_cancel'];
+ const names=['broker_list_clients','broker_send','broker_update_metadata','broker_message_status','broker_receive','broker_acknowledge','broker_identity','broker_sent_history','broker_message_content','broker_resend','broker_cancel','broker_presence_events','broker_acknowledge_presence_event'];
  const guarded=Object.fromEntries(names.map(name=>[name,async (args,context)=>{
   if(!active())return failure(expected?'not_connected':'session_binding_unavailable');
   return toolScope.run(async signal=>{const result=await tools[name](args,{...context,signal});status();return result;},context?.signal);
@@ -171,7 +176,7 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
   if(!bound()||registrationVersion(expiredConfig??{})!==2||!currentClient?.expiredIdentityConfirmed||!incarnation||!expiredConfig)return failure('session_mismatch');
   const epoch=generation,config=expiredConfig;connecting=true;connected=false;status();
   try{
-   connectionAbort?.abort();await toolScope?.close();await recoveryPromise?.catch(()=>{});recoveryPromise=null;await runtime?.stop({closeSession:false});
+   connectionAbort?.abort();await notices?.stop();notices=null;await toolScope?.close();await recoveryPromise?.catch(()=>{});recoveryPromise=null;await runtime?.stop({closeSession:false});
    const valid=()=>bound()&&generation===epoch&&!disabled;
    if(!valid())throw Error('session_changed');
    await incarnation.replace({client:currentClient,verifySession:valid,signal:AbortSignal.timeout(5000)});
@@ -207,7 +212,7 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
    }
    if(resumeOptions&&!disabled)await approvalSession.resume(resumeOptions);
   }
-  if(active())status();
+  if(active()){await notices?.tick();if(active())status();}
    }).finally(()=>{ticking=null;});
    return ticking;
   },

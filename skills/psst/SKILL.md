@@ -28,3 +28,12 @@ before ACK. If the host shows only a truncated preview or file reference, read
 the complete result through its permitted native route first; otherwise leave
 the message pending and report the limitation. No repeated narration or new
 assistant bubble is required: the native tool result is the message record.
+
+Transport notices use a separate flow: after a native offline-delivery hint,
+call `broker_presence_events`, read the metadata-only result, then explicitly
+call `broker_acknowledge_presence_event` with each exact event_id you read.
+These events are not peer messages, reply deadlines, proof of non-receipt or
+human authorization. Never automatically resend, cancel or close a session
+because of one. Their ACK does not acknowledge a message or change its read
+receipt. `has_more` or `capacity_limited` means bounded work remains; advance by
+reading and explicitly acknowledging observed events, not an idle polling loop.

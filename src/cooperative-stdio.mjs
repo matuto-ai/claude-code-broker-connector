@@ -2,6 +2,7 @@
 import packageInfo from '../package.json' with { type: 'json' };
 import { StringDecoder } from 'node:string_decoder';
 import { readableReceive } from './receive-presentation.mjs';
+import { readablePresence } from './presence-notices.mjs';
 import { canonical } from '../vendor/psst/src/protocol.mjs';
 import { invokeTool } from '../vendor/psst/reference/tools.mjs';
 
@@ -30,6 +31,8 @@ export const TOOL_DEFINITIONS = Object.freeze([
   { name: 'broker_resend', description: 'Explicit new delivery of an owned retained message, with a new message ID. May duplicate a prior delivery; never an automatic technical retry.', inputSchema: object({ message_id: uuid, ttl_seconds: { type: 'integer', minimum: 60, maximum: 604800 } }, ['message_id']) },
   { name: 'broker_cancel', description: 'Stop further pending delivery of one owned message. Cannot undo inbox content; inspect uncertainty and cancel_result.', inputSchema: object({ message_id: uuid }, ['message_id']) },
   { name: 'broker_message_status', description: 'Read broker delivery state, never model progress or task completion.', inputSchema: object({ message_id: uuid }, ['message_id']) },
+  { name: 'broker_presence_events', description: 'Read up to 10 durable transport notices for this exact session. No message content or reply timeout. Repeat reads retain pending notices; explicitly ACK each event_id after reading to advance. has_more or capacity_limited indicates remaining bounded work. Never auto-resend, cancel or close.', inputSchema: object() },
+  { name: 'broker_acknowledge_presence_event', description: 'Explicitly acknowledge one previously read transport event_id. Does not ACK any message or imply action success or native transcript delivery. Lost responses reconcile the same durable ACK intent.', inputSchema: object({ event_id: uuid }, ['event_id']) },
   { name: 'broker_receive', description: 'Read the oldest durable AGENT inbox item; its receipt remains private inside this connector. The item remains pending until you explicitly call broker_acknowledge. Use after an automatic native monitor notice; a manual invocation is diagnostic/test-only. read_acknowledgment:pending means the read ACK is still required; native_injection_receipt describes an unavailable capability, not failed delivery.', inputSchema: object() },
 ]);
 
@@ -131,7 +134,8 @@ export function serveStdio({ input = process.stdin, output = process.stdout, too
       try{
         if(admission&&!admission.isCurrent())throw Error('stale');
         const result = await invokeTool(admission?.tools??tools, p.name, args, { signal: transportAbort.signal });
-        const presented = readableNativeReceive && p.name === 'broker_receive' ? readableReceive(result) : null;
+        const presented = readableNativeReceive && p.name === 'broker_receive' ? readableReceive(result)
+          : readableNativeReceive && p.name === 'broker_presence_events' ? readablePresence(result) : null;
         return send({ jsonrpc: '2.0', id, result: presented ?? { content: [{ type: 'text', text: canonical(result) }], isError: Boolean(result?.error) } }, presented ? maxReceiveResponseBytes : maxResponseBytes,admission?.isCurrent);
       }catch{return send({jsonrpc:'2.0',id,error:{code:-32603,message:'Tool result unavailable; reconcile the original operation.'}},maxResponseBytes,admission?.isCurrent);}
     }
