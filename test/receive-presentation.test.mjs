@@ -12,6 +12,8 @@ import { serveStdio } from '../src/cooperative-stdio.mjs';
 import { Inbox, newSessionIdentity } from '../vendor/psst/reference/inbox.mjs';
 import { createCooperativeInbox } from '../src/cooperative-inbox.mjs';
 const sender = '11111111-1111-4111-8111-111111111111';
+// Presentation fixtures use a fixed clock within their envelope lifetime.
+const fixtureNow = Date.parse('2026-11-02T12:00:00.000Z');
 function envelope(text, name='Pi peer', recipient=randomUUID()) {
   return {protocol_version:'1',message_id:randomUUID(),recipient_id:recipient,recipient_sequence:1,
     sender:{client_id:sender,client_type:'pi',name,model:{provider:null,id:null,source:'unknown'},project:null,metadata_revision:1},
@@ -80,7 +82,7 @@ test('empty, error, unknown and mismatched messages retain the old JSON contract
 
 test('presentation preserves inbox hashes, pending state, private receipt and restart/ACK semantics', async t => {
   const directory=mkdtempSync(join(tmpdir(),'psst-readable-')),identity=newSessionIdentity('claude-code');
-  let inbox=new Inbox({directory,identity});t.after(()=>{inbox.close();rmSync(directory,{recursive:true,force:true});});
+  let inbox=new Inbox({directory,identity,now:()=>fixtureNow});t.after(()=>{inbox.close();rmSync(directory,{recursive:true,force:true});});
   const e=envelope('unchanged body\nend', 'peer',identity.client_id);inbox.accept(e);
   let api=createCooperativeInbox({inbox});const original=await api.broker_receive();
   const before=inbox.db.prepare('SELECT * FROM inbox WHERE message_id=?').get(e.message_id);
@@ -90,12 +92,21 @@ test('presentation preserves inbox hashes, pending state, private receipt and re
     assert.equal(JSON.stringify(shown).includes(receipt),false);
   }
   assert.deepEqual(inbox.db.prepare('SELECT * FROM inbox WHERE message_id=?').get(e.message_id),before);
-  inbox.close();inbox=new Inbox({directory,identity});api=createCooperativeInbox({inbox});
+  inbox.close();inbox=new Inbox({directory,identity,now:()=>fixtureNow});api=createCooperativeInbox({inbox});
   assert.deepEqual(readableReceive(await api.broker_receive()).structuredContent,original);
   const ack=await api.broker_acknowledge({message_id:e.message_id});assert.equal(ack.acknowledged,true);assert.equal(ack.action_success,'unknown');
   assert.deepEqual(await api.broker_acknowledge({message_id:e.message_id}),ack);
   assert.equal((await api.broker_receive()).message,null);
   assert.equal(inbox.db.prepare('SELECT native_receipt FROM inbox WHERE message_id=?').get(e.message_id).native_receipt,null);
+});
+
+test('presentation fixture still rejects a new inbox item at its exact expiry', t => {
+  const directory=mkdtempSync(join(tmpdir(),'psst-readable-expiry-')),identity=newSessionIdentity('claude-code');
+  const e=envelope('expired body','peer',identity.client_id);
+  const inbox=new Inbox({directory,identity,now:()=>Date.parse(e.expires_at)});
+  t.after(()=>{inbox.close();rmSync(directory,{recursive:true,force:true});});
+  assert.throws(()=>inbox.accept(e),{code:'envelope_expired',effect:'not_applied'});
+  assert.equal(inbox.db.prepare('SELECT COUNT(*) AS count FROM inbox').get().count,0);
 });
 
 test('actual wire preserves full maximum hostile body and tail within receive-only 1MiB', async t => {
