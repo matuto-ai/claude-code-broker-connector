@@ -1,12 +1,12 @@
 # Distribution and npm publishing
 
-For 0.6.0, follow the [package/repository migration checklist](migration-0.6.0.md) first: rename the repository before releasing and configure the new package's trusted publisher. Do not publish the same name/version twice during bootstrap.
+For 0.6.0, follow the [package/repository migration checklist](migration-0.6.0.md) first: verify the final repository URL before releasing and configure the new package's trusted publisher. Do not publish the same name/version twice during bootstrap.
 
 The supported native Claude marketplace install works directly from the reviewed
 GitHub branch/tag. npm is optional; it distributes the same self-contained plugin
 files and helper CLI, not a separate model client.
 
-The npm package is prepared as `@matuto-ai/claude-code-psst-connector` version `0.6.0`.
+The npm package is prepared as `@matuto-ai/claude-psst-connector` version `0.6.0`.
 The version-bump PR itself does not publish. The separately authorized GitHub
 release triggers the configured trusted publisher; verify its result before
 announcing availability.
@@ -19,7 +19,7 @@ store an npm token in this repository.
 
 For the scoped npm package, configure npm's GitHub Actions trusted publisher for:
 - GitHub owner: `matuto-ai`
-- Repository: `claude-code-psst-connector`
+- Repository: `claude-psst-connector`
 - Workflow filename: `npm-publish.yml`
 
 Creating/configuring that publisher is an account-security action for the owner.

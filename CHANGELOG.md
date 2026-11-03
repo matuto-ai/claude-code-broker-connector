@@ -1,6 +1,6 @@
 # 0.6.0 — Unreleased
 
-- Rename the npm distribution and GitHub repository to `claude-code-psst-connector`.
+- Rename the npm distribution and GitHub repository to `claude-psst-connector`.
 - Preserve native plugin identity, commands, private installation state and message journals.
 - Existing installations require an explicit package/source update; see `docs/migration-0.6.0.md`.
 
