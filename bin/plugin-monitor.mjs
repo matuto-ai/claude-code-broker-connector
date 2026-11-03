@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { processIdentity, readPrivateJson, writePrivateJson } from '../src/launch-state.mjs';
 import { nativeStateConfig, readPluginConfig, hostDirectory, readBinding, verifyBinding } from '../src/plugin-state.mjs';
 import { noticeBudget } from '../src/native-notices.mjs';
+import { monitorBudget } from '../src/monitor-budget.mjs';
 import { PRESENCE_NOTICE } from '../src/presence-notices.mjs';
 try {
  // Claude's native shell launcher supplies both. Never infer a session from a name or arbitrary journal.
@@ -22,7 +23,7 @@ try {
   if(!expected){const actual=processIdentity(pid);if(actual.start!==host.start||actual.boot!==host.boot)break;await delay(100);}
  }
  if(!expected)throw Error('native_monitor_binding_missing');
- const budget=noticeBudget();
+ const budget=monitorBudget({path:join(directory,'message-notice-budget.json'),binding:expected});
  // Keep transport-hint attempts across monitor restarts. Reserve before stdout;
  // neither the checkpoint nor successful stdout acknowledges a broker event.
  const presenceBudgetPath=join(directory,'presence-notice-budget.json');

@@ -7,6 +7,7 @@ test('delivery status describes local observations, never certification or a mes
     [false, {state:'not_observed'}, 'not_connected'],
     [false, {attention_required:false}, 'not_connected'],
     [true, {state:'not_observed'}, 'blocked_monitor_not_observed'],
+    [true, {state:'notice_budget_unavailable',attention_required:true}, 'blocked_notice_budget_unavailable'],
     [true, {attention_required:false}, 'monitor_observed'],
     [true, {attention_required:true,rate_limited:true}, 'monitor_observed'],
   ]) {

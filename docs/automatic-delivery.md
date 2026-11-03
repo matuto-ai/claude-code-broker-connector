@@ -76,6 +76,24 @@ Sources:
   are not globally silenced forever. A head still unread after its third notice
   enters explicit attention-required state (visible through broker_identity);
   it remains durable for an explicitly requested diagnostic read, with no idle model polling loop.
+- Message reminder reservations are saved privately before stdout in
+  `message-notice-budget.json` beside the native session binding. The same
+  PID/start/boot/session/lifetime reloads that checkpoint after a monitor restart,
+  so restarting cannot reset either the head's retries or the rolling window.
+  A short kernel-owned SQLite lock serializes re-read/reserve across overlapping
+  monitor processes and releases on exit or crash; no stale PID lock is stolen.
+  A genuinely new native lifetime does not inherit the old lifetime's budget.
+  This metadata never reads or acknowledges the inbox. An interrupted reservation
+  may consume a reminder without producing stdout, which is safer than replaying
+  it. Existing installations without a checkpoint begin recording on the first
+  new reminder; reminders emitted by older versions cannot be reconstructed.
+- A corrupt, non-private or unwritable message checkpoint stops message hints
+  and reports `blocked_notice_budget_unavailable` with attention required, rather
+  than resetting limits or claiming readiness. The checkpoint and unread data are
+  preserved; no permission repair or automatic ACK occurs. Independent transport
+  notices continue with their own budget. Diagnose the storage failure before
+  using the supported lifecycle controls to restart; do not delete the budget to
+  obtain more reminders.
 - Native output batching/rate limits can suppress notices. Writing stdout is not
   proof of native transcript storage, model reading, or action completion. Only
   an explicit matching `broker_acknowledge` advances the local FIFO.
@@ -92,8 +110,9 @@ Sources:
 
 ## Evidence
 
-Unit fixtures cover bounded retries, zero notices while disconnected, stale/native
-session fences, and body-free output. Real-broker integration covers no-config
+Unit fixtures cover bounded retries across repeated monitor restart, the retained
+rolling rate window, corrupt/unsafe/failed reservations, zero notices while
+disconnected, stale/native session fences, and body-free output. Real-broker integration covers no-config
 startup, explicit connect, FIFO receive/ACK, MCP restart, disconnect/reconnect with
 pending messages, and SessionEnd. These synthetic host fixtures are not native
 Claude model certification.
@@ -141,7 +160,8 @@ returns the old flag with this same capability meaning. No native receipt is
 inserted into the database, and no pending item is consumed by status or receive.
 
 Identity and setup status report local readiness: `not_connected`,
-`blocked_monitor_not_observed`, or `monitor_observed`. The last value replaces
+`blocked_monitor_not_observed`, `blocked_notice_budget_unavailable`, or
+`monitor_observed`. The last value replaces
 `native_wakeup_acceptance_unverified`; it means the exact session's current
 monitor state was recently observed, not that the monitor caused a model turn.
 The accompanying attention/rate-limit state remains authoritative. Neither
