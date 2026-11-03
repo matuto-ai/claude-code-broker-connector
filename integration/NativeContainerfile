@@ -3,6 +3,8 @@ WORKDIR /opt/claude
 # Official package bytes, pinned independently of current dist-tags; no npm lifecycle scripts.
 RUN node --input-type=module -e "import{writeFileSync}from'node:fs';import{createHash}from'node:crypto';const r=await fetch('https://registry.npmjs.org/@anthropic-ai/claude-code-linux-x64/-/claude-code-linux-x64-2.1.310.tgz',{signal:AbortSignal.timeout(60000)});if(!r.ok)throw Error('artifact download failed');const b=Buffer.from(await r.arrayBuffer());if(createHash('sha512').update(b).digest('base64')!=='CuzpJrMBbqaR3+1SiLrBtPV3w/cFvcqBfhe9kNskzZ2Fm6KXa7v0l7tM+Ln6l5QLb79WoU0CcacXnYtsygbe6A==')throw Error('artifact integrity mismatch');writeFileSync('official.tgz',b)" \
  && tar -xzf official.tgz && rm official.tgz
+# Published pre-migration package, fetched at build time and verified again offline.
+RUN node --input-type=module -e "import{writeFileSync}from'node:fs';import{createHash}from'node:crypto';const r=await fetch('https://registry.npmjs.org/@matuto-ai/claude-code-broker-connector/-/claude-code-broker-connector-0.4.0.tgz',{signal:AbortSignal.timeout(60000)});if(!r.ok)throw Error('legacy artifact download failed');const b=Buffer.from(await r.arrayBuffer());if(createHash('sha512').update(b).digest('base64')!=='KENWpHb7Kankcmfg9Zb/p3Id2oskR/3jItAr6otaOyS/nXTxEA7DuLQr+99N9XJ7Idp0FM7zBfGDUGO30PbVzw==')throw Error('legacy artifact integrity mismatch');writeFileSync('legacy.tgz',b)"
 COPY integration/native-dispatch-probe.mjs /opt/probe.mjs
 COPY . /opt/connector
 USER 1000:1000

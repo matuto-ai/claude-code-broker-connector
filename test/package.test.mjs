@@ -17,7 +17,7 @@ test('packed native plugin installs without lifecycle scripts or sibling checkou
  assert.equal(sourcePackage.repository.url,'https://github.com/matuto-ai/claude-psst-connector.git');
  assert.deepEqual(sourcePackage.bin,{'psst-claude':'bin/cli.mjs'});
  assert.equal(artifact.filename,`matuto-ai-claude-psst-connector-${sourcePackage.version}.tgz`);
- for(const required of ['.mcp.json','.claude-plugin/plugin.json','.claude-plugin/marketplace.json','hooks/hooks.json','monitors/monitors.json','skills/connect/SKILL.md','skills/disconnect/SKILL.md','bin/plugin-mcp.mjs','vendor/psst/reference/inbox.mjs','vendor/psst/LICENSE'])assert(names.includes(required),required);
+ for(const required of ['.mcp.json','.claude-plugin/plugin.json','.claude-plugin/marketplace.json','distribution/npm-marketplace.json','hooks/hooks.json','monitors/monitors.json','skills/connect/SKILL.md','skills/disconnect/SKILL.md','bin/plugin-mcp.mjs','vendor/psst/reference/inbox.mjs','vendor/psst/LICENSE'])assert(names.includes(required),required);
  assert(!names.some(x=>x.endsWith('.sqlite')||x.endsWith('.tgz')||x.includes('token')));
  const installed=run(['install','--prefix',join(temp,'install'),'--ignore-scripts','--offline','--no-audit','--no-fund',join(temp,artifact.filename)]);assert.equal(installed.status,0,installed.stderr);
  const root=join(temp,'install/node_modules/@matuto-ai/claude-psst-connector');
@@ -32,4 +32,7 @@ test('packed native plugin installs without lifecycle scripts or sibling checkou
  const marketplace=JSON.parse(readFileSync(join(root,'.claude-plugin/marketplace.json')));
  assert.equal(marketplace.name,'psst-connectors');
  assert.equal(marketplace.plugins.find(plugin=>plugin.name==='psst').version,sourcePackage.version);
+ const catalog=JSON.parse(readFileSync(join(root,'distribution/npm-marketplace.json')));
+ assert.equal(catalog.name,marketplace.name);
+ assert.deepEqual(catalog.plugins.find(plugin=>plugin.name==='psst').source,{source:'npm',package:sourcePackage.name,version:sourcePackage.version});
 });
