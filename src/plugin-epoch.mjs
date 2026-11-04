@@ -159,7 +159,8 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
    if(plan.keepContext){setupContext=old;}
    else setupContext=saveSetupContext({broker_url:brokerUrl,selection_revision:readSelection()?.revision??null,request_id:null,state:'requested'},old?.revision??null);
    disabled=false;writePrivateJson(join(directory,'setup-activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,cancelled:false});
-   const result=plan.resume?await approvalSession.resume(options):await approvalSession.start(options,{replace:plan.replace});
+   // Explicit retries may re-POST the same durable ID/key; background resume remains GET-only.
+   const result=await approvalSession.start(options,{replace:plan.replace});
    return setupPresentation({brokerUrl,state:result,connected:!!active(),candidateConnected:result.connected===true});
   }catch(error){
    // A failed POST may have durable local candidate state. Later startup may GET

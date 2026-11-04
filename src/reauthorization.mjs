@@ -3,7 +3,7 @@ export function setupPlan({replace,context,candidate,brokerUrl,selection,expecte
  if(expectedBrokerUrl!==undefined&&expectedBrokerUrl!==brokerUrl)throw Error('configured_broker_mismatch');
  const same=context?.broker_url===brokerUrl;
  const unfinished=same&&['requested','pending','approved'].includes(context.state);
- const resume=replace&&(candidate?.state==='pending'||(candidate?.state==='approved'&&unfinished&&selection?.connection_file!==candidate.connectionFile));
+ const resume=replace&&candidate?.state==='pending';
  return {resume,keepContext:unfinished&&(!replace||resume),replace:replace&&!resume};
 }
 export function setupPresentation({brokerUrl,state,connected=false,candidateConnected=false}){

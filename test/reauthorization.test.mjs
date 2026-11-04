@@ -12,10 +12,10 @@ test('selected valid or stale/revoked approved authorization requests explicit r
  for(const state of ['revoked','denied','expired'])assert.equal(plan({candidate:{...candidate,state}}).replace,true);
  assert.equal(plan({candidate:null}).replace,true);
 });
-test('pending/uncertain candidates resume across cancellation and sessions; unselected approval retries attachment',()=>{
+test('pending/uncertain candidates reconcile across cancellation and sessions; approved replacement is explicit',()=>{
  for(const state of ['requested','pending','approved']){
   assert.deepEqual(plan({context:{...context,state},candidate:{...candidate,state:'pending'}}),{resume:true,keepContext:true,replace:false});
-  assert.equal(plan({context:{...context,state}}).resume,true);
+  assert.equal(plan({context:{...context,state}}).replace,true);
  }
  assert.equal(plan({context:{...context,state:'approved'},selection:{connection_file:candidate.connectionFile}}).replace,true);
  assert.equal(plan({context:{...context,broker_url:'https://other.invalid',state:'approved'}}).keepContext,false);
@@ -26,11 +26,6 @@ test('old active connection is not a connected replacement and presentation expo
  assert.equal(out.outcome,'approved_not_connected');assert.equal(out.candidate_connected,false);assert.equal(out.approval_url,brokerUrl+'/admin');
  assert.equal(setupPresentation({brokerUrl,state:{state:'pending'}}).outcome,'pending');
  assert.equal(setupPresentation({brokerUrl,state:{state:'approved'},candidateConnected:true}).outcome,'connected');
-});
-test('replacement retry at ApprovalSession boundary never POSTs an existing pending request',async t=>{
- let begins=0;const s=new ApprovalSession({readApprovalState:()=>({...candidate,state:'pending'}),beginApproval:async()=>{begins++;},pollApproval:async()=>({...candidate,state:'pending'}),onApproved:async()=>({connected:true}),isCurrent:()=>true,intervalMs:10000});t.after(()=>s.cancel());
- for(let i=0;i<3;i++){const result=await s.start({brokerUrl},{replace:true});assert.equal(result.requestId,id);s.cancel();}
- assert.equal(begins,0);
 });
 test('discoverable user-only skill has fixed dispatch, confirmation, native binding and honest execution cost',()=>{
  const skill=readFileSync(new URL('../skills/reauthorize/SKILL.md',import.meta.url),'utf8');

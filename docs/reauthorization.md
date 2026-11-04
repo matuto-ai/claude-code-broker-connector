@@ -16,7 +16,11 @@ claimed to work. Replacement does not revoke old credentials, and prior revocati
 is not required. Only the human administrator performs revocation in Psst admin.
 
 Repeating the command resumes pending candidates after cancellation, restart or
-uncertain POST responses. An approved candidate not yet selected retries attachment.
+uncertain POST responses. For approved-but-not-connected candidates, the owner chooses retry attachment
+(without replace) or a new approval (replace:true), including when that candidate
+was revoked before attachment. Errors alone never prove revocation.
+An explicit retry may resend POST with the same durable request ID/key when
+the initial POST never reached the broker; automatic resume/polling stays GET-only.
 `broker_setup_cancel` stops this session's intent only; the durable candidate stays.
 `broker_setup_status` reads state without enrollment. Host polling, not a model
 loop, watches approval. Selection races retain the previous selection and old

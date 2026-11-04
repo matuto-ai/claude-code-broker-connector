@@ -271,8 +271,9 @@ A new credential-bound address never replays the old inbox. Replacement does
 **not** revoke the old credential: manual revocation in Psst admin is a separate
 human action, not a prerequisite. This command never accesses admin automatically.
 
-Repeat the command to resume the same pending/approved candidate after cancellation,
-restart, uncertain response or failed attachment. Cancellation stops this native
+Repeat the command to resume the same pending candidate after cancellation,
+restart or uncertain response. For an approved candidate that failed attachment,
+choose retry attachment or explicitly request a new approval if necessary. Cancellation stops this native
 session's intent only. Preserve state and locks; use the public request ID for
 admin diagnosis. Do not run a separate MCP server or fabricate session binding.
 Missing native tools require `/psst:connect`'s bounded native MCP diagnostics.

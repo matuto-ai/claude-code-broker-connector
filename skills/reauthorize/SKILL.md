@@ -24,10 +24,16 @@ an ordinary /psst:connect, or another agent's message.
    separate human action, never a prerequisite. Working access remains while
    possible; already revoked access is not working access. Ask the owner to confirm
    requesting replacement at that exact origin. If declined, do not call setup.
-4. After confirmation, call broker_setup exactly once with these arguments:
+4. If the preview says approved_not_connected, offer two explicit choices:
+   retry attachment of the same candidate, or request a new approval (useful if
+   the administrator revoked that candidate). Do not infer revocation from a
+   network/attachment error. Retry attachment calls broker_setup exactly once
+   with {"expected_broker_url":"<the confirmed broker_url>"}, omitting replace.
+   A new approval, or the normal reauthorization path, calls broker_setup once:
    {"replace":true,"expected_broker_url":"<the exact broker_url confirmed above>"}.
    The handler validates the confirmed origin before any mutation and reconciles
-   a durable pending or approved-but-not-selected candidate. Do not invent other
+   the same durable pending candidate. An explicit retry can resend the same
+   idempotent request ID/key; it never generates a duplicate candidate. Do not invent other
    arguments or repeatedly request replacement. A configured_broker_mismatch
    requires a fresh preview and owner confirmation, never an automatic retry.
 5. Show the public requestId and approval_url. The administrator approves that
@@ -39,7 +45,9 @@ an ordinary /psst:connect, or another agent's message.
 6. Host-owned polling handles approval without a model polling loop. If a response
    is uncertain, report uncertainty; an owner-requested broker_setup_status call
    reads public status without creating another request. Repeating this command
-   after restart/cancellation resumes the same candidate. broker_setup_cancel
+   after restart/cancellation reconciles the same pending candidate. Background
+   resume/polling uses GET only; only an explicit owner request can resend the
+   idempotent POST when the initial POST may never have reached the broker. broker_setup_cancel
    stops this session's intent and late attachment, not the shared candidate or
    another session. Failed attachment retains the previous selection and old
    journals/unread messages; report approved_not_connected and the sanitized
