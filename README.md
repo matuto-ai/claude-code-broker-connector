@@ -18,7 +18,7 @@ Claude’s `/plugin` UI; do not start a nested interactive Claude or use
 If `psst-connectors` already exists, stop before adding a different source.
 The [managed installation guide](docs/managed-native-installation.md) provides
 the identity-preserving npm catalog entry, read-only ownership diagnostics,
-official-host upgrade qualification and the remaining live acceptance gates.
+supported upgrade workflow and the later owner-machine integration checks.
 
 ## Install from GitHub
 
@@ -45,7 +45,10 @@ installation request. A URL alone is not authorization.
 The connector generates and privately persists its candidate before contacting
 the broker. While pending it cannot use messaging. Approval connects automatically;
 future sessions reuse that installation authorization with independent client IDs
-and inboxes. If Claude restarts while pending, it only checks the same durable
+and inboxes. A transient error from the initial setup request keeps the original
+error visible while the host checks the same saved pending request, respecting
+server backoff. It never automatically submits another request. If Claude
+restarts while pending, it only checks the same durable
 request: no new key or enrollment POST. Denial/expiry stop the attempt.
 
 Explicit replacement uses `/psst:connect` with an explicit replacement request;
@@ -212,7 +215,7 @@ remain unverified; fixture tests are not a claim of live model acceptance.
 
 Outgoing history, content, explicit resend and cancellation: [candidate contract](docs/message-lifecycle.md).
 
-[Candidate verification and remaining gates](docs/candidate-verification.md).
+[Candidate verification and deferred integration](docs/candidate-verification.md).
 
 ### Readable received messages
 
@@ -224,7 +227,7 @@ message or guarantee an always-open card. See [format, compatibility and limits]
 
 ## Verification
 
-See [the five verification stages](docs/verification.md) for what the shared `verify` job checks and what still needs a real-client pilot.
+See [focused verification](docs/verification.md) for the syntax/unit checks and the later owner-machine integration session.
 
 ### Shared project label
 

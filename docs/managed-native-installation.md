@@ -1,7 +1,9 @@
 # Native installation and administrator-owned upgrades
 
 This candidate supplies an identity-preserving distribution path. It does not change a live sandbox, publish a release,
-or certify authenticated automatic delivery. Issue #11 remains open for those gates.
+or certify authenticated automatic delivery. The owner deferred real-environment
+integration testing from issue #11's acceptance on 2026-11-04; those checks will
+take place later on the owner's machine.
 
 ## Keep the existing identity and source registration
 
@@ -77,14 +79,14 @@ startup flag, internal binary or new API key is required of the user.
    approval. The broker administrator approves that exact request in `/admin`.
    A URL, an MCP connection and a successful plugin install are not authorization.
 
-## Qualification and remaining acceptance
+## Current acceptance and later integration
 
 The maintained automatic suite checks connector decisions with focused unit tests.
 The former official-host/container qualification harness has been removed. Unit
 results do not certify the native package manager, a live upgrade or authenticated
 automatic delivery.
 
-The remaining live prerequisites are concrete:
+The later owner-machine integration prerequisites are concrete:
 
 - Identify the actual sandbox launcher/bootstrap or seed owner. The connector
   repository does not own an unidentified managed marketplace or launch policy.
@@ -97,8 +99,10 @@ The remaining live prerequisites are concrete:
   model read/ACK evidence separately from transport storage or fixture tool calls.
 
 Unit tests do not substitute for those authenticated automatic-delivery checks.
-Current repository evidence must not close
-#11 or mark the release as fully accepted by itself.
+The owner explicitly deferred these real-environment checks; they are not current
+#11 acceptance or merge gates. The connector's functional and safety requirements
+still apply, and repository acceptance is not an npm publication, deployment or
+claim of verified behavior in the owner's environment.
 
 References: [native plugin commands](https://code.claude.com/docs/en/plugins/cli-reference),
 [npm marketplace entries](https://code.claude.com/docs/en/plugins/marketplace-reference#npm-plugin-source),

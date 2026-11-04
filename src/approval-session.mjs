@@ -23,6 +23,18 @@ export class ApprovalSession {
    const result=await this.beginApproval({...options,...(replace&&previous?{replaceRequestId:previous.requestId}:{})});
    if(!current())return {state:'cancelled'};
    return await this.accept(result,options,epoch);
+  }catch(error){
+   // The POST may have reached the broker before its response was lost. Resume
+   // only a validated durable pending candidate, under the same native intent.
+   // Keep the original uncertain result; recovery must never repeat the POST.
+   if(current()&&error.retryable===true){
+    let saved;try{saved=this.readApprovalState(options);}catch{}
+    if(saved?.state==='pending'){
+     this.status={state:'pending',requestId:saved.requestId,...(saved.requestExpiresAt?{requestExpiresAt:saved.requestExpiresAt}:{}),connection:'temporarily_unavailable'};
+     this.onState(this.status);this.schedule(options,epoch,this.retryDelay(error));
+    }
+   }
+   throw error;
   }finally{this.busy=false;}
  }
  async accept(result,options,epoch){
@@ -40,6 +52,10 @@ export class ApprovalSession {
   if(result.state==='pending')this.schedule(options,epoch);
   return this.status;
  }
+ retryDelay(error){
+  const retryAfter=Number.isFinite(error.retryAfterMs)?Math.max(1000,Math.min(300000,error.retryAfterMs)):this.intervalMs;
+  return Math.max(this.intervalMs,retryAfter);
+ }
  schedule(options,epoch,waitMs=this.intervalMs){
   this.timer=setTimeout(async()=>{
    if(epoch!==this.epoch||!this.isCurrent())return;
@@ -50,8 +66,7 @@ export class ApprovalSession {
     if(this.status.requestExpiresAt&&Date.parse(this.status.requestExpiresAt)<=Date.now()){this.status={...this.status,state:'expired'};this.onState(this.status);return;}
     // Keep the exact durable request. A failed poll never invokes beginApproval.
     this.status={...this.status,connection:'temporarily_unavailable'};this.onState(this.status);
-    const retryAfter=Number.isFinite(error.retryAfterMs)?Math.max(1000,Math.min(300000,error.retryAfterMs)):this.intervalMs;
-    this.schedule(options,epoch,Math.max(this.intervalMs,retryAfter));
+    this.schedule(options,epoch,this.retryDelay(error));
    }
   },waitMs);
  }
