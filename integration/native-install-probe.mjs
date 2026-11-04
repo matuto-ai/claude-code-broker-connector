@@ -1,5 +1,6 @@
 // Real official manager + real installed MCP + loopback provider. Never user acceptance.
 import assert from 'node:assert/strict';
+import {verifyPackageArtifact} from '../scripts/package-provenance.mjs';
 import {mkdtempSync,mkdirSync,readFileSync,writeFileSync,readdirSync,rmSync,statSync} from 'node:fs';
 import {tmpdir,networkInterfaces} from 'node:os';
 import {join,resolve,dirname} from 'node:path';
@@ -69,7 +70,7 @@ try{
  await command(['plugin','marketplace','update','psst-connectors','--json']);const upgraded=await command(['plugin','update','psst@psst-connectors','--scope','user','--json']);
  assert.equal(upgraded.updateOutcome,'updated');assert.equal(upgraded.oldVersion,'0.4.0');assert.equal(upgraded.newVersion,pkg.version);assert.deepEqual(hashTree(preserved),saved);assertUnread(preserved,oldUnread.message_id);
  const after=await command(['plugin','list','--json']);assert.equal(after.length,1);assert.equal(after[0].id,before[0].id);assert.equal(after[0].scope,before[0].scope);assert.equal(after[0].version,pkg.version);assert.equal(after[0].enabled,true);assert(!after[0].readFromFolder);assert(after[0].mcpServers.psst);assert(!after[0].mcpServers.psst.env.PSST_PLUGIN_PAIRING_SECRET);
- assert.equal(readFileSync(join(after[0].installPath,'bin/plugin-mcp.mjs'),'utf8'),readFileSync(join(source,'bin/plugin-mcp.mjs'),'utf8'));
+ verifyPackageArtifact({source,installed:after[0].installPath,artifact,archive:join(root,artifact.filename),runtimeDirectories:['bin','src','vendor']});
  const marketAfter=await command(['plugin','marketplace','list','--json']);assert.equal(marketAfter.length,1);assert.equal(marketAfter[0].path,market);
  const freshHome=join(root,'fresh-home');mkdirSync(freshHome);writeFileSync(join(freshHome,'.npmrc'),readFileSync(join(home,'.npmrc')),{mode:0o600});
  const freshEnv={...env,HOME:freshHome,CLAUDE_CONFIG_DIR:join(freshHome,'config')};
