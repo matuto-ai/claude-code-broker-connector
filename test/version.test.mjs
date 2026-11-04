@@ -10,3 +10,11 @@ test('package, native plugin and both marketplace catalogs share the release ver
  const source=npm.plugins.find(p=>p.name===plugin.name).source;
  assert.equal(source.source,'npm');assert.equal(source.package,pkg.name);assert.equal(source.version,pkg.version);
 });
+
+
+test('active migration checklist targets the current release while preserving its stable URL',()=>{
+ const text=readFileSync(new URL('../docs/migration-0.6.0.md',import.meta.url),'utf8');
+ assert(text.includes('release `v'+read('package.json').version+'`'));
+ assert(!text.includes('release `v0.6.0`'));
+ assert(text.includes('requires separate owner authorization'));
+});
