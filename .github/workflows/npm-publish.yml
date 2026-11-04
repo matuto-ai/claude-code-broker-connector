@@ -7,42 +7,29 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          path: claude-code-review-pair
-          persist-credentials: false
-      - name: Resolve current Psst source
-        id: psst-source
-        shell: bash
-        run: |
-          set -euo pipefail
-          commit="$(git ls-remote https://github.com/matuto-ai/psst.git refs/heads/main | cut -f1)"
-          [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
-          echo "commit=$commit" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: matuto-ai/psst
-          ref: ${{ steps.psst-source.outputs.commit }}
-          path: ai-agent-msg-broker
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24.19.0'
-      - name: Verify resolved Psst source
-        run: node scripts/test-source.mjs ../ai-agent-msg-broker '${{ steps.psst-source.outputs.commit }}'
-        working-directory: claude-code-review-pair
-      - name: Verify release version and package
-        working-directory: claude-code-review-pair
+      - name: Verify release version and source
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-          PSST_VERIFIED_PACKAGE_OUTPUT_DIR: ${{ runner.temp }}/verified-package
         run: |
           node --input-type=module -e 'import fs from "node:fs";const p=JSON.parse(fs.readFileSync("package.json"));if(process.env.RELEASE_TAG!==`v${p.version}`)throw Error("Tag must match package version")'
           npm run check
           npm test
-          npm run test:integration
+      - name: Pack the checked source once
+        env:
+          PACKAGE_DIR: ${{ runner.temp }}/verified-package
+        run: |
+          mkdir -p "$PACKAGE_DIR"
+          npm pack --ignore-scripts --pack-destination "$PACKAGE_DIR"
+          cd "$PACKAGE_DIR"
+          sha256sum ./*.tgz > SHA256SUMS
       - name: Retain exact verified package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

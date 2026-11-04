@@ -20,9 +20,8 @@ The original hook-issued native binding and installed credential are unchanged.
 No other conversation can inherit this pointer. A target-recipient404, timeout,
 credential error, or active conflict never authorizes replacement.
 
-Local validation uses throwaway HTTP brokers and synthetic native-parent MCP
-processes, not an authenticated Claude acceptance run. The native retention tests use the CI sibling `ai-agent-msg-broker` checkout, or
-`PSST_TEST_ROOT` pointing to an explicit Psst fixture checkout pinned to the commit
-below. Missing fixture files fail with an error; tests are never silently skipped. Example:
-`PSST_TEST_ROOT=/path/to/pinned-psst npm test`. Vendor hashes pin reviewed Psst PR40 commit
-`f32ddc79ec7b812062ed3f6de7b9a0c12a7128f3`.
+Unit tests call `NativeIncarnation` with a stubbed client that supplies the
+SDK-confirmed expiry decision and creates a local replacement journal. They cover
+selection, scope fencing, uncertainty, persistence failure and cleanup without
+starting Psst or Claude. Shared registration and expiry-protocol tests belong in
+Psst; authenticated native acceptance remains separate.

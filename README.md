@@ -185,19 +185,16 @@ npm test
 npm pack --dry-run
 ```
 
-The maintainer commands above and `npm run test:integration` require the Psst
-broker checkout at `../ai-agent-msg-broker`, pinned to
-`f32ddc79ec7b812062ed3f6de7b9a0c12a7128f3`; both verification and release CI
-provide that same fixture. Unit tests include real broker retention fixtures, and
-`npm pack` runs the unit suite through `prepack`. Native
-plugin hooks, real broker transport, SQLite persistence, explicit multi-message
-ACK, MCP restart, and session shutdown are exercised by a synthetic native
-parent. [Verification details](docs/verification.md) distinguish this from a real
-logged-in Claude/model exchange, which must be tested by the operator.
+The checkout is self-contained: Node 24.19.0 or later in the Node 24 line is
+all that is needed. `npm test` runs focused unit tests of connector behavior
+using in-memory streams, injected collaborators and temporary private files.
+It needs no Psst checkout, network service, Claude binary, credentials or Docker.
+`npm pack` runs syntax checks and the unit suite through `prepack`.
+[Verification details](docs/verification.md) describe the coverage and its limits.
 
 Bundled runtime source is unmodified and SHA256-checked against Psst commit
 `ba2219cd87a1feac23e01b23d2c2b3d3bdd65359`, with MIT attribution. The older
-`bin/launch.mjs` exact-session launcher remains only as a compatibility fixture;
+`bin/launch.mjs` exact-session launcher remains for compatibility;
 the normal installation path above does not use it.
 
 ### Private pairing files

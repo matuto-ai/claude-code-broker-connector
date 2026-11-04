@@ -1,228 +1,45 @@
-# Automatic source and artifact identity
+# Focused connector verification
 
-Every verification run resolves the current Psst `main` to an immutable commit,
-checks out that commit, and fails before integration tests if HEAD differs or the
-fixture contains modified/untracked files. The provenance line records commit,
-tree and package version. An intentional old-version migration fixture remains
-pinned separately; it is never labeled the current server.
-
-Package tests build `npm pack` from the checkout, install that actual tarball in a
-disposable prefix, compare every installed file byte-for-byte to source, and
-require every runtime file to be included. The source commit, dirty flag, tarball
-SHA-256 and per-file SHA-256 values are emitted as `PACKAGE_PROVENANCE`. In CI the
-checkout commit must match `GITHUB_SHA`. A same-version stale artifact fails too.
-
-The installed Claude MCP process must initialize and expose its native tool
-catalog with the package version. OpenCode's installed native plugin reports
-`connector_version` from its own package metadata; the existing real-host/TUI
-suite also checks this live status. The isolated OpenCode host-API fixture is
-component evidence, not real-host/model acceptance.
-
-Negative regressions cover stale version, stale source bytes with an unchanged
-version, an omitted runtime module, mismatched running version, wrong source
-commit and dirty fixture. No manual release/version edit is required to assemble
-these tests. Release verification retains the exact successful tarball and its
-SHA-256 receipt; publication uses those bytes with lifecycle scripts disabled,
-not a second package build. The official host binaries remain explicit compatibility targets;
-this gate does not silently upgrade host runtimes or mutate production.
-
-# Verification stages
-
-`.github/workflows/verify.yaml` runs one `verify` job with five ordered stages:
-
-1. **Check source syntax**: parse source and test files without executing them.
-2. **Run local tests**: deterministic component and metadata checks (`npm run test:local`).
-3. **Verify native host and protocol integration**: local broker, HTTP/TLS and MCP/runtime fixtures (`npm run test:integration`).
-4. **Verify container persistence**: destroy and recreate real Docker containers while retaining only the approved installation volume.
-5. **Verify installable package**: pack, install offline into a temporary directory, and check the distributed entry points and metadata (`npm run test:pack`).
-
-The local, integration and package test selections are disjoint where applicable;
-`test/verify-stages.test.mjs` guards complete coverage and stable stage names.
-`npm test` retains its existing developer behavior. Docker runs separately from
-local tests. The connector-specific implementation inside each stage is not
-interchangeable with another host's API.
-
-Passing these checks does not prove authenticated native-model receipt or the
-user's actual UI. Real-client acceptance remains a separate pilot. No VM,
-production broker, real credentials or deployment is used by these checks.
-
-## Existing detailed verification reference
-
-# Verification scope
-
-## 0.5.0 URL-only installation approval
-
-The candidate pins the shared approval helper and real broker fixtures to
-`matuto-ai/psst@72f5d2d1b834e02cfb6b2f7dc11c6f1a55729344`. Source preparation
-does not imply that this dependency or connector version has been released.
-
-On Node 24.19.0, syntax checks and 54 unit tests passed; the integration aggregate
-passed 22 tests with only the unavailable Docker gate skipped. The cleaned legacy
-pairing fixture was rerun separately: 10 passed. Focused approval tests exercise actual HTTPS issuance, operator
-form login and CSRF approval, durable pending restart without another POST, lost
-POST response reconciliation, cancellation during new registration, and 30
-concurrent pending native hosts with independent IDs. Three consecutive repetitions
-of the 30-host case passed after the local selection contention fix. Deterministic
-barriers cover old stop, new registration, pre-selection and selection backoff,
-including rollback and explicit disconnect.
-
-Official Claude 2.1.310 validates the plugin/marketplace (only missing-icon warning)
-and its real `--init-only` process demonstrates persisted native URL configuration
-interpolated into MCP, a matching native parent, and a supplied native session ID.
-This uses no login/model credentials. It is **not** an interactive configuration
-dialog or authenticated model/monitor acceptance test. The synthetic host reacts
-to real monitor notices in the transport fixture; it cannot prove delivery to a
-real Claude model.
-
-The dedicated container CI job rebuilds an isolated non-root fixture, requests
-approval, and recreates containers retaining only the config volume. It is skipped
-locally when Docker is unavailable; a green actual container job is required before
-claiming that gate.
-
-
-The historical baseline below covers cooperative 0.2.1. The new native monitor
-prototype has additional bounded-notice tests and an explicit authenticated
-validation gap documented in [automatic-delivery.md](automatic-delivery.md).
-It does not inherit an authenticated wakeup claim from these older checks.
-
-# Native plugin verification — October 24, 2026
-
-The `0.2.0` native plugin replaces the wrapper-only installation path described
-in the historical notes below. The legacy wrapper remains tested but is not the
-normal operator entry point.
-
-On cloud Linux, Node 24.22.1:
-
-- Syntax checks passed for all adapter and vendored modules.
-- Unit tests cover native binding/lifecycle, config bundle restrictions, source
-  pins, stdio boundaries, explicit cooperative acknowledgment, malformed/unread/
-  departed/uncertain message rejection, durable receipt retries and storage faults.
-- A real `npm pack` artifact was installed offline with scripts disabled into an
-  empty temporary prefix. Native manifests/hooks/MCP/runtime/license were present;
-  helper CLI and local doctor ran without a sibling broker checkout or network call.
-- Two real-broker integration tests passed, including native-plugin startup before
-  SessionStart, multiple messages, exact receipt acknowledgment, reply, same-native-
-  session MCP restart preserving identity/inbox, and native SessionEnd closure.
-  Their native parent is synthetic, not a logged-in Claude model session.
-- Official Claude Code **2.1.309** (`@anthropic-ai/claude-code-linux-x64`) validated
-  the native plugin/marketplace manifest. The only remaining warning is cosmetic:
-  no directory listing icon. This is not a marketplace approval claim.
-- With a fresh isolated HOME and **no authentication/model credentials**, actual
-  Claude `--plugin-dir ... --init-only` launched an instrumented MCP process and
-  exec-form SessionStart hook. Both reported the same native Claude parent PID and
-  Linux process-start identity; SessionStart supplied the real native session UUID.
-  This verifies the critical direct-parent binding assumption, independently of
-  synthetic transport tests. A repeatable `scripts/audit-native.mjs` probe accepts
-  an existing official executable via `CLAUDE_AUDIT_BIN` and makes no model request.
+Run from this checkout with Node 24.19.0 or later in the Node 24 line:
 
 ```sh
-CLAUDE_AUDIT_BIN=/absolute/path/to/claude npm run audit:claude
+npm run check
+npm test
 ```
 
-Shared runtime hashes remain byte-identical to the reviewed Psst commit below.
-The separately attributed adapter files add explicit application read ACK and
-bounded MCP tool schemas; **they do not fabricate native acceptance receipts**.
+There are no test dependencies to install. `check` parses the connector, tests
+and vendored runtime. `test` uses Node's built-in test runner.
 
-Not tested here: authenticated Claude/model round-trip in Bruno's sandbox,
-permission UI, his TLS/token mounts, all Claude versions, non-Linux platforms,
-or automatic wakeup. Those are not implied by health checks or the native ABI
-probe. Restart after installation; after `/clear`, reconnect Psst or restart.
-No user credentials, production configuration, npm release or main merge occurred.
+## Unit scope
 
-## Historical wrapper foundation evidence
+The suite exercises connector-owned decisions and failure handling:
 
+- Approval polling, cancellation, selection rollback and private configuration.
+- Native binding and lifetime fences, one-use call permits and cleanup.
+- Incarnation selection and recovery with a stubbed broker collaborator.
+- Explicit receive/ACK presentation, hostile-text escaping and MCP argument bounds.
+- Durable reminder budgets and transport-notice read/ACK state.
+- Project metadata, source integrity and sanitized installation diagnostics.
 
-2026-10-23 cloud Linux, Node 24.19.0 / SQLite 3.53.3:
-`npm run check` and **12/12 tests passed** against shared broker commit
-`ba2219cd87a1feac23e01b23d2c2b3d3bdd65359`.
+Tests call modules directly with injected collaborators or in-memory streams.
+Temporary private files and SQLite journals cover this connector's own persistence;
+they do not start a broker, network listener or child process. Tests for the shared
+Psst server and protocol belong in Psst, not in this repository.
 
-The end-to-end fixture spawns a **synthetic Claude CLI**, real native-hook helper
-processes, the real standard MCP subprocess, shared HTTP broker and SQLite inbox.
-It checks lifecycle confirmation, exact ownership, delivery ACK, model-visible
-AGENT warning, cooperative non-consumption and clean native shutdown. Focused
-tests cover main/subagent guards, unknown/switched lifetime, PID reuse defense,
-model metadata, EOF during registration, bounded arguments and tamper-rejected
-reference source. The fake executable's `0.0.0` version is not a vendor version.
+No Psst sibling checkout, Docker, official Claude binary, provider account,
+credentials or network access is required. The old integration, native-host,
+container, package-install and end-to-end harnesses have been removed rather than
+hidden behind optional flags.
 
-Not run: actual authenticated Claude TUI/broker flow, provider calls, real permission
-UI, native hook ordering under clear/resume/compact/model switch, rootless Podman
-or two-host TLS LAN. Ordinary MCP tools may require human approval; none was
-bypassed. This PR is not a full issue #9 completion claim.
+## CI and packaging
 
-Required next gates:
+The existing `verify` job runs only syntax checks and unit tests, with a three-minute
+timeout. The release workflow checks the tag/version, runs those same commands,
+packs the checked source once and records its SHA-256. Its separate publication
+job checks that receipt and publishes the same tarball without rebuilding it.
+Local `npm pack` still runs syntax checks and unit tests through `prepack`.
 
-1. Pin an official CLI version and verify all launch/hook events against it,
-   including root session and subagent tool routing and MCP restart.
-2. Confirm actual provider-visible tool-result provenance with hostile body text
-   (`yes`, fake channel boundaries and prompt-injection strings).
-3. Keep human drafts, active work and approvals untouched. Cooperative tools are
-   invoked only in native flow; no automatic event may inject a prompt.
-4. Establish a supported durable native acceptance receipt before consuming any
-   inbox head. Channel opt-in alone is insufficient and permission relay must
-   remain disabled.
-5. Package and test separate CLI+adapter rootless containers and two-host LAN.
-
-
-## Official Claude 2.1.309 compatibility audit
-
-On 2026-10-23, the official npm packages `@anthropic-ai/claude-code@2.1.309`
-and `@anthropic-ai/claude-code-linux-x64@2.1.309` were unpacked in a disposable
-cloud directory with npm lifecycle scripts disabled. No user installation,
-credentials, login, model request or existing configuration was used.
-
-The actual native Linux x64 executable reported `2.1.309 (Claude Code)` and
-internal commit `1ce7e4ff2da8`. Its SHA256 was:
-
-```text
-4d704a8aecbe038affa3000f498ae17c1b4f753add8facb8764120affc99b658
-```
-
-Verified with a fresh private HOME and empty test project:
-
-1. Actual `--help` lists `--session-id`, `--settings` and `--mcp-config`. The
-   version output matches the existing launcher's exact-version check.
-2. `claude --settings <generated-settings.json> doctor` accepted the launcher's
-   SessionStart/SessionEnd/PostModelSwitch/PreToolUse hook configuration. A
-   negative control changing `args` from an array to a number produced an explicit
-   invalid-settings diagnostic. Doctor exits zero even for that diagnostic, so
-   the output—not exit code alone—was checked.
-3. `claude --settings <isolated-setup-hook.json> --init-only` executed a Setup hook
-   with the same `command` plus `args` form. One argument containing spaces,
-   apostrophe, dollar sign, semicolon and backtick arrived unchanged. It exited
-   zero without authentication or a model call. This verifies exec-form mechanics;
-   it does not claim that Setup is an adapter lifecycle event.
-
-This agrees with the official [hook exec-form reference](https://code.claude.com/docs/en/hooks#exec-form-and-shell-form)
-and [CLI flags reference](https://code.claude.com/docs/en/cli-reference#cli-flags).
-No runtime source change was needed. Shared reference pin and the 12-test
-synthetic/real-broker fixture coverage above are unchanged.
-
-For a user-local test, set `expectedCliVersion` to `2.1.309` and `claudeBinary`
-to the absolute installed executable path in each private adapter config. Launch
-`bin/launch.mjs` with an explicit Node 24.19.0 executable: that exact Node path is
-propagated to hooks and MCP subprocesses, without changing global Node. Use two
-fresh interactive sessions with separate state directories/names, and approve
-ordinary native MCP prompts yourself. See [launch configuration](integration.md).
-
-**Still unverified by this audit:** authenticated SessionStart-to-MCP ordering,
-actual two-session broker/model exchange, permission UI, clear/resume/compact and
-subagent routing in the real TUI. There were no live broker or model calls in this
-compatibility audit. The adapter still peeks rather than consumes its inbox.
-
-# Installed native package and approval qualification
-
-The container stage also runs `integration/native-install-probe.mjs` against the
-integrity-pinned official Claude 2.1.310 binary and published old npm package 0.4.0.
-It uses the actual packed candidate, native manager and unmodified installed MCP,
-with a loopback npm registry/provider and real TLS broker/admin UI. It verifies
-fresh npm install, same-source upgrade, native identity/scope preservation,
-unchanged real legacy unread journal/credentials, conflicting source refusal,
-URL-only setup, pending restart using the same request, explicit native
-receive/ACK/send and retained authorization across a new isolated session.
-Suppression must remove the tools even though the hook still exists.
-
-The workflow runs with no external network, a read-only container filesystem,
-no capabilities and disposable fixture configuration. The provider requests
-specific fixture tool calls; this is not authenticated model acceptance or
-automatic idle/busy/typing delivery. See the
-[managed installation guide](managed-native-installation.md) for remaining gates.
+Passing unit tests establishes the covered connector behavior. It does not prove
+native installation, authenticated model delivery, or a live user's environment.
+Those acceptance questions remain separate from the automatic unit suite and
+are not closed by this cleanup. See [managed installation](managed-native-installation.md).

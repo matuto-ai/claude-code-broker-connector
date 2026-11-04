@@ -8,7 +8,7 @@ import { launchFiles, readPrivateJson, writePrivateJson, processIdentity, verify
 
 function fixture(t) {
   const directory = mkdtempSync(join(tmpdir(), 'claude-binding-test-')); t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const config = { referenceRoot: resolve('../ai-agent-msg-broker'), stateRoot: directory, brokerUrl: 'https://broker.example.invalid', tokenFile: join(directory, 'not-a-real-token'), name: 'same-name', expectedCliVersion: '0.0.0' };
+  const config = { referenceRoot: resolve('vendor/psst'), stateRoot: directory, brokerUrl: 'https://broker.example.invalid', tokenFile: join(directory, 'not-a-real-token'), name: 'same-name', expectedCliVersion: '0.0.0' };
   const result = launchFiles({ config, runDirectory: join(directory, 'run'), adapterRoot: resolve('.') });
   writePrivateJson(join(directory, 'run', 'host.json'), processIdentity(process.pid));
   return { directory, run: join(directory, 'run'), config, ...result };

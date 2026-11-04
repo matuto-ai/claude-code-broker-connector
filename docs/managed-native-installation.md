@@ -1,7 +1,6 @@
 # Native installation and administrator-owned upgrades
 
-This candidate supplies an identity-preserving distribution path and an executable
-official-host qualification. It does not change a live sandbox, publish a release,
+This candidate supplies an identity-preserving distribution path. It does not change a live sandbox, publish a release,
 or certify authenticated automatic delivery. Issue #11 remains open for those gates.
 
 ## Keep the existing identity and source registration
@@ -80,22 +79,10 @@ startup flag, internal binary or new API key is required of the user.
 
 ## Qualification and remaining acceptance
 
-`integration/native-install-probe.mjs` uses pinned official Claude 2.1.310 and
-the integrity-verified published legacy 0.4.0 package in a network-disabled
-container. A loopback npm registry serves the candidate's actual npm tarball.
-Only disposable fixture-owned configuration/catalogs are changed. Native
-installation, update, hooks and MCP code run normally, without `--plugin-dir` or
-synthetic native bindings. A controlled loopback provider requests specific tools;
-it is not an authenticated model.
-
-The probe checks the actual legacy native MCP and unread journal, same-source
-native package upgrade without changing identity/scope or private state, refusal
-of a conflicting same-name source, native URL-only setup, real TLS broker and
-admin-form approval after a pending restart, native receive/explicit ACK/send,
-authorization reuse with a new isolated native mailbox, and native tool absence
-when the suppression flag is enabled. Package maintenance also preserves the
-new authorization and unread journal. It does not claim that preserved old
-mailboxes should be inherited by a new native session.
+The maintained automatic suite checks connector decisions with focused unit tests.
+The former official-host/container qualification harness has been removed. Unit
+results do not certify the native package manager, a live upgrade or authenticated
+automatic delivery.
 
 The remaining live prerequisites are concrete:
 
@@ -109,8 +96,8 @@ The remaining live prerequisites are concrete:
   broker restart, native restart and persisted sandbox recreation. Record native
   model read/ACK evidence separately from transport storage or fixture tool calls.
 
-No amount of loopback-provider testing substitutes for those authenticated
-automatic-delivery checks. Current repository/fixture evidence must not close
+Unit tests do not substitute for those authenticated automatic-delivery checks.
+Current repository evidence must not close
 #11 or mark the release as fully accepted by itself.
 
 References: [native plugin commands](https://code.claude.com/docs/en/plugins/cli-reference),

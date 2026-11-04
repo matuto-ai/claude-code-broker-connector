@@ -65,14 +65,13 @@ observed IDs to advance; do not invent a model polling loop or ACK unseen IDs.
 
 ## Evidence boundary
 
-Cheap tests cover restart and deduplication, explicit-read-before-ACK, lost ACK
+Unit tests cover restart and deduplication, explicit-read-before-ACK, lost ACK
 responses, invalid receipts, unsupported brokers, obsolete/changed snapshots,
 page/byte/record bounds, cancellation, finite monitor reminders and MCP argument
-validation. The real HTTP/SQLite plus child MCP/monitor integration advances a
-fake broker clock across the 600-second threshold and exercises read, restart,
-ACK, unchanged pending message state and native-lifetime fencing.
+validation. Broker responses are supplied by in-process collaborators; no broker,
+child MCP or native monitor process is started.
 
-Native lifecycle/tool inputs in these fixtures are synthetic. Passing them or
-CI does not establish authenticated Claude model execution, automatic monitor
-acceptance in an interactive host, or resolution of the native attachment gates
-in Claude #11. No running deployment, policy or user installation is changed.
+Passing these tests does not establish authenticated Claude model execution,
+automatic monitor acceptance in an interactive host, or resolution of the native
+attachment gates in Claude #11. No running deployment, policy or user installation
+is changed.

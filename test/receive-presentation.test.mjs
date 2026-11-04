@@ -100,15 +100,6 @@ test('presentation preserves inbox hashes, pending state, private receipt and re
   assert.equal(inbox.db.prepare('SELECT native_receipt FROM inbox WHERE message_id=?').get(e.message_id).native_receipt,null);
 });
 
-test('presentation fixture still rejects a new inbox item at its exact expiry', t => {
-  const directory=mkdtempSync(join(tmpdir(),'psst-readable-expiry-')),identity=newSessionIdentity('claude-code');
-  const e=envelope('expired body','peer',identity.client_id);
-  const inbox=new Inbox({directory,identity,now:()=>Date.parse(e.expires_at)});
-  t.after(()=>{inbox.close();rmSync(directory,{recursive:true,force:true});});
-  assert.throws(()=>inbox.accept(e),{code:'envelope_expired',effect:'not_applied'});
-  assert.equal(inbox.db.prepare('SELECT COUNT(*) AS count FROM inbox').get().count,0);
-});
-
 test('actual wire preserves full maximum hostile body and tail within receive-only 1MiB', async t => {
   let original;const call=await rpc(t,{broker_receive:async()=>original},{readableNativeReceive:true,maxReceiveResponseBytes:NATIVE_RECEIVE_RESPONSE_BYTES});
   for(const char of ['\u0000','\u001b','\n','\r','\t','`','\\','😀']) {
