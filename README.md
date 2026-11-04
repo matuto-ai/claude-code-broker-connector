@@ -45,7 +45,10 @@ installation request. A URL alone is not authorization.
 The connector generates and privately persists its candidate before contacting
 the broker. While pending it cannot use messaging. Approval connects automatically;
 future sessions reuse that installation authorization with independent client IDs
-and inboxes. If Claude restarts while pending, it only checks the same durable
+and inboxes. A transient error from the initial setup request keeps the original
+error visible while the host checks the same saved pending request, respecting
+server backoff. It never automatically submits another request. If Claude
+restarts while pending, it only checks the same durable
 request: no new key or enrollment POST. Denial/expiry stop the attempt.
 
 Explicit replacement uses `/psst:connect` with an explicit replacement request;

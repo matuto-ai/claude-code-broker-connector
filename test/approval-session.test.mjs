@@ -42,3 +42,117 @@ test('nonretryable configuration failure and approved attach failure stop pollin
 test('host polling respects retryAfterMs and cancellation clears the delayed retry',async t=>{
  let polls=0;const f=fixture({pollApproval:async()=>{polls++;throw Object.assign(Error('rate limit'),{retryable:true,retryAfterMs:1000});}});t.after(()=>f.instance.cancel());await f.instance.start({});await delay(100);assert.equal(polls,1);f.instance.cancel();await delay(30);assert.equal(polls,1);
 });
+
+test('uncertain initial POST resumes the durable request with GET only in the same session', async t => {
+ let durable = null, begins = 0, polls = 0;
+ const error = Object.assign(Error('private transport details'), { retryable: true, effect: 'unknown' });
+ const states = [];
+ const f = fixture({
+  readApprovalState: () => durable,
+  beginApproval: async () => { begins++; durable = { ...pending, token: 'private-candidate' }; throw error; },
+  pollApproval: async () => { polls++; return { ...durable, state: 'approved' }; },
+  onState: state => states.push(state),
+ });
+ t.after(() => f.instance.cancel());
+ await assert.rejects(f.instance.start({}), thrown => thrown === error);
+ assert.equal(f.instance.status.state, 'pending');
+ assert.equal(f.instance.status.requestId, pending.requestId);
+ assert.equal(f.instance.status.connection, 'temporarily_unavailable');
+ for (let i = 0; i < 30 && !f.instance.status.connected; i++) await delay(10);
+ assert.equal(f.instance.status.connected, true);
+ assert.equal(begins, 1);
+ assert.equal(polls, 1);
+ assert.doesNotMatch(JSON.stringify(states), /private-candidate|private transport details/);
+});
+
+test('initial POST recovery honors retry-after before GET reconciliation', async t => {
+ t.mock.timers.enable({ apis: ['setTimeout'] });
+ let begins = 0, polls = 0;
+ const error = Object.assign(Error('rate_limited'), { retryable: true, retryAfterMs: 3000 });
+ const f = fixture({
+  beginApproval: async () => { begins++; throw error; },
+  pollApproval: async () => { polls++; return { ...pending, state: 'denied' }; },
+ });
+ t.after(() => f.instance.cancel());
+ await assert.rejects(f.instance.start({}), thrown => thrown === error);
+ t.mock.timers.tick(2999);
+ assert.equal(polls, 0);
+ t.mock.timers.tick(1);
+ await Promise.resolve();
+ assert.equal(polls, 1);
+ assert.equal(f.instance.status.state, 'denied');
+ t.mock.timers.tick(10000);
+ assert.equal(polls, 1);
+ assert.equal(begins, 1);
+});
+
+test('initial POST recovery clamps backoff and cancellation clears it', async t => {
+ t.mock.timers.enable({ apis: ['setTimeout'] });
+ for (const [hint, wait] of [[-1, 1000], [600000, 300000]]) {
+  let polls = 0;
+  const f = fixture({ beginApproval: async () => { throw Object.assign(Error('offline'), { retryable: true, retryAfterMs: hint }); },
+   pollApproval: async () => { polls++; return pending; } });
+  await assert.rejects(f.instance.start({}));
+  t.mock.timers.tick(wait - 1);
+  assert.equal(polls, 0);
+  f.instance.cancel();
+  t.mock.timers.tick(wait + 1);
+  assert.equal(polls, 0);
+ }
+});
+
+test('initial POST recovery refuses missing, corrupt and terminal durable candidates', async t => {
+ for (const saved of [null, 'corrupt', { ...pending, state: 'denied' }, { ...pending, state: 'expired' }, { ...pending, state: 'approved' }]) {
+  let reads = 0, polls = 0;
+  const error = Object.assign(Error('offline'), { retryable: true, effect: 'unknown' });
+  const f = fixture({ readApprovalState: () => { if (++reads === 1) return null; if (saved === 'corrupt') throw Error('private corrupt file'); return saved; },
+   beginApproval: async () => { throw error; }, pollApproval: async () => { polls++; return pending; } });
+  t.after(() => f.instance.cancel());
+  await assert.rejects(f.instance.start({}), thrown => thrown === error);
+  assert.equal(f.instance.timer, null);
+  assert.equal(polls, 0);
+  assert.equal(f.counts().attachments, 0);
+ }
+});
+
+test('terminal or unclassified initial POST errors never start automatic recovery', async t => {
+ for (const retryable of [false, undefined]) {
+  let reads = 0;
+  const error = Object.assign(Error('forbidden'), { retryable });
+  const f = fixture({ readApprovalState: () => { reads++; return pending; }, beginApproval: async () => { throw error; } });
+  t.after(() => f.instance.cancel());
+  await assert.rejects(f.instance.start({}), thrown => thrown === error);
+  assert.equal(reads, 1);
+  assert.equal(f.instance.timer, null);
+ }
+});
+
+test('cancelled or departed native intent cannot resume a late failed POST', async t => {
+ for (const action of ['cancel', 'depart']) {
+  let reject, live = true;
+  const error = Object.assign(Error('late network failure'), { retryable: true });
+  const f = fixture({ isCurrent: () => live, beginApproval: () => new Promise((_, fail) => { reject = fail; }) });
+  t.after(() => f.instance.cancel());
+  const started = f.instance.start({});
+  if (action === 'cancel') f.instance.cancel(); else live = false;
+  reject(error);
+  await assert.rejects(started, thrown => thrown === error);
+  assert.equal(f.instance.timer, null);
+  assert.equal(f.counts().polls, 0);
+  assert.equal(f.counts().attachments, 0);
+ }
+});
+
+test('recovered pending state stops on terminal GET failure without another POST', async t => {
+ let begins = 0, polls = 0;
+ const f = fixture({ beginApproval: async () => { begins++; throw Object.assign(Error('lost response'), { retryable: true }); },
+  pollApproval: async () => { polls++; throw Object.assign(Error('not found'), { retryable: false }); } });
+ t.after(() => f.instance.cancel());
+ await assert.rejects(f.instance.start({}));
+ for (let i = 0; i < 30 && f.instance.status.connection !== 'blocked'; i++) await delay(10);
+ assert.equal(f.instance.status.connection, 'blocked');
+ await delay(30);
+ assert.equal(begins, 1);
+ assert.equal(polls, 1);
+ assert.equal(f.counts().attachments, 0);
+});
