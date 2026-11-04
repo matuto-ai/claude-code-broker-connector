@@ -15,6 +15,11 @@ in-session `!` shell, use it for npm and the read-only doctor below, then use
 Claude’s `/plugin` UI; do not start a nested interactive Claude or use
 `--plugin-dir` startup flags. Package installation is not native MCP readiness.
 
+If `psst-connectors` already exists, stop before adding a different source.
+The [managed installation guide](docs/managed-native-installation.md) provides
+the identity-preserving npm catalog entry, read-only ownership diagnostics,
+official-host upgrade qualification and the remaining live acceptance gates.
+
 ## Install from GitHub
 
 After release `v0.6.0` is published, install the pinned release:

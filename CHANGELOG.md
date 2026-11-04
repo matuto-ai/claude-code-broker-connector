@@ -1,5 +1,7 @@
 # 0.6.0 — Unreleased
 
+- Add an administrator-owned npm catalog entry that retains `psst@psst-connectors`; distinguish source/seed ownership and declared native MCP from actual attachment in sanitized read-only diagnostics.
+- Qualify fresh native npm installation and the published 0.4.0 upgrade with the official host, preserving real private credentials/unread journals and exercising URL-only approval, restart, send/read/ACK and suppression negatives through an isolated provider. Authenticated automatic delivery and live managed distribution remain separate release gates.
 - Rename the npm distribution and GitHub repository to `claude-psst-connector`.
 - Preserve native plugin identity, commands, private installation state and message journals.
 - Existing installations require an explicit package/source update; see `docs/migration-0.6.0.md`.

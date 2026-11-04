@@ -180,3 +180,21 @@ ordinary native MCP prompts yourself. See [launch configuration](integration.md)
 actual two-session broker/model exchange, permission UI, clear/resume/compact and
 subagent routing in the real TUI. There were no live broker or model calls in this
 compatibility audit. The adapter still peeks rather than consumes its inbox.
+
+# Installed native package and approval qualification
+
+The container stage also runs `integration/native-install-probe.mjs` against the
+integrity-pinned official Claude 2.1.310 binary and published old npm package 0.4.0.
+It uses the actual packed candidate, native manager and unmodified installed MCP,
+with a loopback npm registry/provider and real TLS broker/admin UI. It verifies
+fresh npm install, same-source upgrade, native identity/scope preservation,
+unchanged real legacy unread journal/credentials, conflicting source refusal,
+URL-only setup, pending restart using the same request, explicit native
+receive/ACK/send and retained authorization across a new isolated session.
+Suppression must remove the tools even though the hook still exists.
+
+The workflow runs with no external network, a read-only container filesystem,
+no capabilities and disposable fixture configuration. The provider requests
+specific fixture tool calls; this is not authenticated model acceptance or
+automatic idle/busy/typing delivery. See the
+[managed installation guide](managed-native-installation.md) for remaining gates.

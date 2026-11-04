@@ -29,6 +29,7 @@
     "hooks/",
     "monitors/",
     "skills/",
+    "distribution/",
     "docs/",
     "README.md",
     "LICENSE",
