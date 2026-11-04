@@ -18,7 +18,7 @@ Claude’s `/plugin` UI; do not start a nested interactive Claude or use
 If `psst-connectors` already exists, stop before adding a different source.
 The [managed installation guide](docs/managed-native-installation.md) provides
 the identity-preserving npm catalog entry, read-only ownership diagnostics,
-official-host upgrade qualification and the remaining live acceptance gates.
+supported upgrade workflow and the later owner-machine integration checks.
 
 ## Install from GitHub
 
@@ -215,7 +215,7 @@ remain unverified; fixture tests are not a claim of live model acceptance.
 
 Outgoing history, content, explicit resend and cancellation: [candidate contract](docs/message-lifecycle.md).
 
-[Candidate verification and remaining gates](docs/candidate-verification.md).
+[Candidate verification and deferred integration](docs/candidate-verification.md).
 
 ### Readable received messages
 
@@ -227,7 +227,7 @@ message or guarantee an always-open card. See [format, compatibility and limits]
 
 ## Verification
 
-See [the five verification stages](docs/verification.md) for what the shared `verify` job checks and what still needs a real-client pilot.
+See [focused verification](docs/verification.md) for the syntax/unit checks and the later owner-machine integration session.
 
 ### Shared project label
 

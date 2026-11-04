@@ -41,5 +41,7 @@ Local `npm pack` still runs syntax checks and unit tests through `prepack`.
 
 Passing unit tests establishes the covered connector behavior. It does not prove
 native installation, authenticated model delivery, or a live user's environment.
-Those acceptance questions remain separate from the automatic unit suite and
-are not closed by this cleanup. See [managed installation](managed-native-installation.md).
+On 2026-11-04 the owner deferred those real-environment checks to a later integrated
+test on their machine, removing them from issue #11's current acceptance. The
+functional requirements, independent source review and unit CI remain required.
+See [managed installation](managed-native-installation.md).

@@ -72,6 +72,7 @@ validation. Broker responses are supplied by in-process collaborators; no broker
 child MCP or native monitor process is started.
 
 Passing these tests does not establish authenticated Claude model execution,
-automatic monitor acceptance in an interactive host, or resolution of the native
-attachment gates in Claude #11. No running deployment, policy or user installation
-is changed.
+automatic monitor behavior in an interactive host, or actual native attachment.
+The owner deferred those real-environment checks to a later integrated test on
+their machine; they are not current Claude #11 acceptance gates. No running
+deployment, policy or user installation is changed.
