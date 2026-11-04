@@ -12,10 +12,12 @@ release triggers the configured trusted publisher; verify its result before
 announcing availability.
 Native plugin `psst`, marketplace `psst-connectors`, and CLI `psst-claude` remain unchanged.
 
-The release-triggered workflow follows the existing pi-intercom-review-pair
-trusted-publishing pattern, adding version matching, full tests, pack/install
-checks, pinned Actions, and an integration gate before publishing. It does not
-store an npm token in this repository.
+The release-triggered workflow checks the tag against the package version, runs
+syntax checks and focused unit tests, then packs the checked source once. It
+retains the tarball and SHA-256 receipt for the separate publishing job, which
+checks the checksum before publishing those exact bytes with scripts disabled.
+Actions remain pinned and no npm token is stored in this repository. No native
+host, sibling Psst checkout, container or package-install test is required.
 
 For the scoped npm package, configure npm's GitHub Actions trusted publisher for:
 - GitHub owner: `matuto-ai`

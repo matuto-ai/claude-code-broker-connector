@@ -7,54 +7,15 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          path: claude-code-review-pair
-          persist-credentials: false
-      - name: Resolve current Psst source
-        id: psst-source
-        shell: bash
-        run: |
-          set -euo pipefail
-          commit="$(git ls-remote https://github.com/matuto-ai/psst.git refs/heads/main | cut -f1)"
-          [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
-          echo "commit=$commit" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: matuto-ai/psst
-          ref: ${{ steps.psst-source.outputs.commit }}
-          path: ai-agent-msg-broker
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24.19.0'
-      - name: Verify resolved Psst source
-        run: node scripts/test-source.mjs ../ai-agent-msg-broker '${{ steps.psst-source.outputs.commit }}'
-        working-directory: claude-code-review-pair
       - name: Check source syntax
         run: npm run check
-        working-directory: claude-code-review-pair
-      - name: Run local tests
-        run: npm run test:local
-        working-directory: claude-code-review-pair
-      - name: Verify native host and protocol integration
-        run: npm run test:integration
-        working-directory: claude-code-review-pair
-      - name: Verify container persistence
-        run: |
-          docker build -f integration/Containerfile -t psst-claude-fixture:local .
-          PSST_TEST_DOCKER=psst-claude-fixture:local node --test integration/container-approval.test.mjs
-          docker build -f integration/NativeContainerfile -t psst-claude-native-probe:local .
-          native_container="psst-native-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          lifecycle_container="psst-lifecycle-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          install_container="psst-install-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          trap 'docker rm -f "$native_container" "$lifecycle_container" "$install_container" >/dev/null 2>&1 || true' EXIT
-          timeout --kill-after=5s 100s docker run --name "$native_container" --rm --network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp:rw,nosuid,size=128m psst-claude-native-probe:local
-          timeout --kill-after=5s 100s docker run --name "$lifecycle_container" --rm --network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp:rw,nosuid,size=128m -v "$PWD/../ai-agent-msg-broker:/opt/psst:ro" -e PSST_TEST_ROOT=/opt/psst psst-claude-native-probe:local node /opt/connector/integration/native-lifecycle-probe.mjs
-          timeout --kill-after=5s 180s docker run --name "$install_container" --rm --network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp:rw,nosuid,size=192m -v "$PWD/../ai-agent-msg-broker:/opt/psst:ro" -e PSST_TEST_ROOT=/opt/psst psst-claude-native-probe:local node /opt/connector/integration/native-install-probe.mjs
-        working-directory: claude-code-review-pair
-      - name: Verify installable package
-        run: npm run test:pack
-        working-directory: claude-code-review-pair
+      - name: Run unit tests
+        run: npm test

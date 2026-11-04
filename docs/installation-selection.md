@@ -39,10 +39,9 @@ session or start a fresh session; heed native cache/permission warnings. Shell
 configuration needs a new process, and non-interactive/desktop reload does not
 reconnect MCP servers. This is initial configuration, not a per-session command.
 
-Official Claude 2.1.310 `--init-only` audit proves persisted native URL substitution
-into a newly loaded MCP plus matching native parent/session bindings, without
-login or model usage. It does not prove interactive dialog behavior, authenticated
-model acceptance or actual delivery to the user's host. Those gates remain honest.
+Unit tests cover private selection, revision conflicts and lock contention.
+They do not prove interactive dialog behavior, authenticated model acceptance
+or actual delivery to the user's host.
 
 A successful explicit `broker_setup` or `broker_connect` remembers the selected connection file.
 New native sessions in that same installation scope then attach automatically.
@@ -96,8 +95,7 @@ not leave a PID lock that somebody must delete.
 ## Isolation and notifications
 
 Each real native PID/start/boot/session lifetime retains its own client ID and
-journal. Thirty simultaneous synthetic native hosts were tested with distinct IDs;
-sharing one installation credential does not share an inbox. Disconnect affects
+journal. Sharing one installation credential does not share an inbox. Disconnect affects
 only that session, preserves unread data and does not forget the installation or
 disconnect other sessions. New sessions remain eligible to connect.
 

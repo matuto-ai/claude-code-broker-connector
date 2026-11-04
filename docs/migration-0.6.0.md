@@ -4,7 +4,7 @@ This is a prepared, unpublished migration. Old package `@matuto-ai/claude-code-b
 
 ## Owner release order
 
-1. Review/test this exact candidate and merge it in the existing repository. Regular `verify.yaml` keeps its five stages and does not require the future repository name: checkout uses the current repository; Psst fixture pins stay unchanged.
+1. Review/test this exact candidate and merge it in the existing repository. Regular `verify.yaml` runs syntax checks and focused unit tests in the current repository, without an external fixture checkout.
 2. The existing GitHub repository is now `matuto-ai/claude-psst-connector`. Confirm checkout and the required `verify` check work under this final URL before publication. Do not rename it again or delete/recreate it. Update local remotes and external references you control.
 3. Create/bootstrap the new public npm package through the owner's supported authenticated npm flow and configure its trusted publisher for owner `matuto-ai`, repository `claude-psst-connector`, workflow `npm-publish.yml`, allowing direct `npm publish`. The old package's trust does not transfer. Follow current npm requirements; never copy a token into source or chat. A first publish used for bootstrap consumes that version: do not attempt to publish `0.6.0` twice. If bootstrap already published the final artifact at `0.6.0`, reconcile that receipt instead of triggering a duplicate publish.
 4. Only after the repository rename and publisher setup, publish GitHub release `v0.6.0` from the reviewed commit, when `0.6.0` has not already been published. This triggers publication of the **new** scoped package. Verify the workflow, package name/version and downloaded artifact before announcing availability.

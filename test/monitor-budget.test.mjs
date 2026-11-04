@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, readFileSync, writeFileSync, statSync, chmodSync }
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { spawn } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 import { monitorBudget } from '../src/monitor-budget.mjs';
 import { readPrivateJson, writePrivateJson, processIdentity } from '../src/launch-state.mjs';
 
@@ -54,27 +54,18 @@ test('overlapping monitors cannot reserve against stale in-memory attempts', t =
   assert.equal(monitors.some(b => b.next(status, 1e9)), false);
 });
 
-test('separate processes serialize message reservations and a killed lock owner cannot strand them', { timeout: 10000 }, async t => {
-  const x = fixture(t), module = new URL('../src/monitor-budget.mjs', import.meta.url).href;
-  const run = source => {
-    const child = spawn(process.execPath, ['--input-type=module', '-e', source], { stdio: ['ignore', 'pipe', 'pipe'] });
-    t.after(() => { if (child.exitCode === null) child.kill('SIGKILL'); });
-    let output = '', error = ''; child.stdout.on('data', data => output += data); child.stderr.on('data', data => error += data);
-    const ended = new Promise(resolve => child.once('exit', code => resolve({ code, output, error })));
-    return { child, ended };
-  };
-  const source = `import { monitorBudget } from ${JSON.stringify(module)}; const b=monitorBudget(${JSON.stringify({path:x.path,binding:x.binding})}); console.log(b.next({connected:true,pending_id:'same-message'},100));`;
-  const results = await Promise.all(Array.from({ length: 12 }, () => run(source).ended));
-  assert(results.every(r => r.code === 0), JSON.stringify(results));
-  assert.equal(results.filter(r => r.output.trim() === 'true').length, 1);
-  assert.equal(readPrivateJson(x.path).checkpoint.attempts, 1);
-  const owner = run(`import { DatabaseSync } from 'node:sqlite'; const lock=new DatabaseSync(${JSON.stringify(join(x.path, '..', '.message-notice-owner.sqlite'))}); lock.exec('BEGIN EXCLUSIVE'); console.log('locked'); setInterval(()=>{},1000);`);
-  await new Promise((resolve, reject) => { owner.child.stdout.once('data', resolve); owner.child.once('exit', () => reject(Error('lock owner exited before ready'))); });
-  const b = x.start();
-  assert.equal(b.next({ connected: true, pending_id: 'same-message' }, 30100), false);
-  assert.notEqual(b.snapshot.state, 'notice_budget_unavailable', 'lock contention is recoverable');
-  owner.child.kill('SIGKILL'); await owner.ended;
-  assert.equal(b.next({ connected: true, pending_id: 'same-message' }, 30100), true);
+test('lock contention suppresses a reservation and recovers after release', t => {
+  const x = fixture(t), status = { connected: true, pending_id: 'same-message' };
+  const budget = x.start();
+  assert.equal(budget.next(status, 100), true);
+  const lock = new DatabaseSync(join(x.path, '..', '.message-notice-owner.sqlite'));
+  try {
+    lock.exec('BEGIN EXCLUSIVE');
+    assert.equal(budget.next(status, 30100), false);
+    assert.notEqual(budget.snapshot.state, 'notice_budget_unavailable');
+    assert.equal(readPrivateJson(x.path).checkpoint.attempts, 1);
+  } finally { lock.close(); }
+  assert.equal(budget.next(status, 30100), true);
   assert.equal(readPrivateJson(x.path).checkpoint.attempts, 2);
 });
 

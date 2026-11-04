@@ -31,13 +31,11 @@ MCP availability alone does not certify automatic attention delivery.
 
 ## Evidence boundaries
 
-The integrity-pinned official Claude Code 2.1.310 probe uses an account-free
-loopback provider in a network-disabled container. It verifies actual native
-hook-to-MCP input replacement without an allow decision and preservation of an
-explicit native denial. Synthetic native lifecycle tests use real HTTP broker,
-MCP transport and private journals to exercise compaction, new lifetimes,
-accepted-but-delayed old sends and saved installation attachment.
+Unit tests exercise binding transitions, call-permit arguments and replay fences,
+revocation, cleanup and output fencing directly. No native process, broker or
+container is started. Tests of the connector's private records use temporary
+local files and journals.
 
 These checks do not replace acceptance of the installed interactive host's
-`/new`, `/compact`, monitor restart or clean installation. Their evidence is
-reported separately; no CI test records user acceptance or grants permission.
+`/new`, `/compact`, monitor restart or clean installation. No CI test records
+user acceptance or grants permission.

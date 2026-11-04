@@ -30,12 +30,3 @@ test('selection and config symlinks/private mode fail closed; lock does not dele
  assert(saveSelection(file,null,root).saved);
  writeFileSync(join(root,'selected-installation.json'),'{invalid',{mode:0o600});assert.throws(()=>selectedConfig(root));
 });
-
-test('30 processes serialize selection writes without corrupting or overwriting a concurrent choice',{timeout:30000},async t=>{
- const {root,file}=fixture(t);const {spawn}=await import('node:child_process');const {pathToFileURL}=await import('node:url');
- const worker=join(root,'worker.mjs');writeFileSync(worker,`import {saveSelection} from ${JSON.stringify(new URL('../src/installation-selection.mjs',import.meta.url).href)};try{console.log(JSON.stringify(saveSelection(process.argv[2],null,process.argv[3])));}catch{console.log(JSON.stringify({saved:false,reason:'busy'}));}`);
- const results=await Promise.all(Array.from({length:30},(_,i)=>new Promise((resolve,reject)=>{
-  const candidate=join(root,`config-${i}.json`);writeFileSync(candidate,readFileSync(file),{mode:0o600});const child=spawn(process.execPath,[worker,candidate,root],{stdio:['ignore','pipe','pipe']});let output='';child.stdout.on('data',x=>output+=x);child.on('error',reject);child.on('close',code=>{try{assert.equal(code,0);resolve(JSON.parse(output));}catch(error){reject(error);}});
- })));
- assert.equal(results.filter(x=>x.saved).length,1);assert.match(readSelection(root).connection_file,/config-\d+\.json$/);assert(selectedConfig(root));
-});

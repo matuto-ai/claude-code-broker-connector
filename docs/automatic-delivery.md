@@ -110,22 +110,14 @@ Sources:
 
 ## Evidence
 
-Unit fixtures cover bounded retries across repeated monitor restart, the retained
-rolling rate window, corrupt/unsafe/failed reservations, zero notices while
-disconnected, stale/native session fences, and body-free output. Real-broker integration covers no-config
-startup, explicit connect, FIFO receive/ACK, MCP restart, disconnect/reconnect with
-pending messages, and SessionEnd. These synthetic host fixtures are not native
-Claude model certification.
+Unit tests cover reminder budgets across reloads, the retained rolling rate
+window, corrupt/unsafe/failed reservations, silent disconnected decisions, native
+session fences and body-free presentation. They call connector modules directly;
+the former synthetic native host, broker and monitor-process harnesses are removed.
 
-Official Claude 2.1.310 validates the always-start monitor and broker URL
-userConfig manifest. Local tests cover a delayed SessionStart, silent disconnected
-monitor, 30 simultaneous synthetic native hosts, and a fresh HOME retaining only
-the selected installation volume. This does not prove authenticated native
-monitor launch or model response. A fresh-HOME, no-auth native
-TUI probe stopped before onboarding/workspace trust because api.anthropic.com
-resolution failed (EAI_AGAIN). Actual monitor launch/notification arrival/model
-wakeup therefore remain **unverified** in that probe. The shipped 2.1.310 loader
-and official docs establish the supported path, not an authenticated success claim.
+Actual monitor launch, notification arrival and model response in an authenticated
+native session remain separate acceptance questions. Unit success is not native
+Claude model certification.
 
 References:
 - https://code.claude.com/docs/en/plugins/components#monitors
