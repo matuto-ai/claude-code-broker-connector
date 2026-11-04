@@ -255,3 +255,33 @@ exact event IDs you read with `broker_acknowledge_presence_event`. Notices conta
 only transport metadata, never message bodies or a reply deadline. They do not
 resend, cancel, close, or acknowledge any message automatically. See the
 [durable bounds, recovery and validation limits](docs/presence-notices.md).
+
+
+## Explicit reauthorization
+
+Use **/psst:reauthorize** to request replacement installation authorization:
+command → confirm the displayed configured HTTPS broker → new public request ID
+→ administrator approves that ID at `/admin` → native attachment and selection.
+`/psst:connect` reconnects saved access; it does not request replacement.
+
+Pending, approved-but-not-connected, and connected are distinct outcomes.
+Existing working access and old journals/unread messages are retained until the
+candidate attaches and is safely selected. Revoked access is not working access.
+A new credential-bound address never replays the old inbox. Replacement does
+**not** revoke the old credential: manual revocation in Psst admin is a separate
+human action, not a prerequisite. This command never accesses admin automatically.
+
+Repeat the command to resume the same pending/approved candidate after cancellation,
+restart, uncertain response or failed attachment. Cancellation stops this native
+session's intent only. Preserve state and locks; use the public request ID for
+admin diagnosis. Do not run a separate MCP server or fabricate session binding.
+Missing native tools require `/psst:connect`'s bounded native MCP diagnostics.
+
+**Execution cost:** `/psst:reauthorize` is a user-invoked native plugin skill.
+Claude executes its fixed instructions and tool calls in a model turn; it is not
+token-free. Host-owned approval polling does not consume repeated model turns.
+The owner accepted this trade-off for discoverability. The newer Claude Mods
+command API offers deterministic dispatch, but its compatibility with the owner's
+installed host has not been verified and this change does not require it.
+
+See [command contract and verification](docs/reauthorization.md).

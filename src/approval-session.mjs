@@ -20,6 +20,7 @@ export class ApprovalSession {
   const current=()=>epoch===this.epoch&&this.isCurrent();
   try{
    const previous=this.readApprovalState(options);
+   if(replace&&previous?.state==='pending')return await this.accept(previous,options,epoch);
    const result=await this.beginApproval({...options,...(replace&&previous?{replaceRequestId:previous.requestId}:{})});
    if(!current())return {state:'cancelled'};
    return await this.accept(result,options,epoch);

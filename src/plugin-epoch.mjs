@@ -7,6 +7,7 @@ import { PresenceNotices } from './presence-notices.mjs';
 import { installationRoot, readSelection, saveSelection, configuredBrokerUrl, enforceConfiguredBroker } from './installation-selection.mjs';
 import { connectPairingFile } from './enrollment-support.mjs';
 import {switchApproved} from './approval-attachment.mjs';
+import {setupPlan,setupPresentation} from './reauthorization.mjs';
 import {ApprovalSession} from './approval-session.mjs';
 import {beginApproval,pollApproval,readApprovalState} from './approval-support.mjs';
 import {readSetupContext,saveSetupContext} from './setup-context.mjs';
@@ -147,16 +148,19 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
      }
     }});
   })});
- guarded.broker_setup=async({replace=false}={})=>{
+ guarded.broker_setup=async({replace=false,expected_broker_url}={})=>{
   autoAttempted=true;if(pairing||connecting||approvalSession.busy||approvalTransition)return failure('connection_busy');
   if(!confirm())return failure('session_binding_unavailable');
   try{
    const brokerUrl=configuredBrokerUrl();if(!brokerUrl)return failure('native_setup_configuration_required');
-   const old=readSetupContext();
-   if(old&&old.broker_url===brokerUrl&&['requested','pending','approved'].includes(old.state)&&!replace){setupContext=old;}
+   if(expected_broker_url!==undefined&&expected_broker_url!==brokerUrl)return failure('configured_broker_mismatch');
+   const old=readSetupContext(),options=setupOptions(brokerUrl);
+   const plan=setupPlan({replace,context:old,candidate:readApprovalState(options),brokerUrl,selection:readSelection(),expectedBrokerUrl:expected_broker_url});
+   if(plan.keepContext){setupContext=old;}
    else setupContext=saveSetupContext({broker_url:brokerUrl,selection_revision:readSelection()?.revision??null,request_id:null,state:'requested'},old?.revision??null);
    disabled=false;writePrivateJson(join(directory,'setup-activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,cancelled:false});
-   return await approvalSession.start(setupOptions(brokerUrl),{replace});
+   const result=plan.resume?await approvalSession.resume(options):await approvalSession.start(options,{replace:plan.replace});
+   return setupPresentation({brokerUrl,state:result,connected:!!active(),candidateConnected:result.connected===true});
   }catch(error){
    // A failed POST may have durable local candidate state. Later startup may GET
    // it, but never invent a new request or retry POST automatically.
@@ -165,10 +169,15 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
  };
  const deliveryReadiness=()=>deliveryStatus({connected:!!active(),monitorAttention:monitorAttention()});
  guarded.broker_setup_status=async()=>{
-  if(approvalSession.status.state!=='not_started')return {...approvalSession.status,...deliveryReadiness()};
-  try{const context=readSetupContext();if(!context)return {state:active()?'connected':'setup_required',connected:!!active(),...deliveryReadiness()};
-   const saved=readApprovalState(setupOptions(context.broker_url));return saved?{state:saved.state,requestId:saved.requestId,requestExpiresAt:saved.requestExpiresAt,connected:!!active(),...deliveryReadiness()}:{state:'setup_required',connected:!!active(),...deliveryReadiness()};
-  }catch{return {state:'blocked',error:'invalid_saved_setup',connected:!!active(),...deliveryReadiness()};}
+  try{
+   const brokerUrl=configuredBrokerUrl(),context=readSetupContext();
+   const saved=brokerUrl?readApprovalState(setupOptions(brokerUrl)):null;
+   const local=approvalSession.status;
+   const state=local.state!=='not_started'&&(!local.requestId||local.requestId===saved?.requestId)?local:(saved?{state:saved.state,requestId:saved.requestId,requestExpiresAt:saved.requestExpiresAt}:{state:'setup_required'});
+   // An active OLD installation is not evidence that this candidate attached.
+   const candidateConnected=!!active()&&saved?.state==='approved'&&context?.broker_url===brokerUrl&&context.state==='applied'&&readSelection()?.connection_file===saved.connectionFile&&connectedConfig?.tokenFile===readPluginConfig(saved.connectionFile).tokenFile;
+   return {...setupPresentation({brokerUrl,state,connected:!!active(),candidateConnected}),...deliveryReadiness()};
+  }catch{return {state:'blocked',error:'invalid_saved_setup',connected:!!active(),candidate_connected:false,...deliveryReadiness()};}
  };
  guarded.broker_setup_cancel=async()=>{approvalSession.cancel();if(approvalTransition&&['stopping','attaching','selecting'].includes(approvalTransition.phase))generation++;if(expected)writePrivateJson(join(directory,'setup-activation.json'),{sessionId:expected.sessionId,lifetime:expected.lifetime,cancelled:true});return {state:'cancelled',existing_connection_retained:!!active()};};
  guarded.broker_recover_expired=async()=>{
