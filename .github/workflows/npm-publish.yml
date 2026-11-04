@@ -13,15 +13,26 @@ jobs:
         with:
           path: claude-code-review-pair
           persist-credentials: false
+      - name: Resolve current Psst source
+        id: psst-source
+        shell: bash
+        run: |
+          set -euo pipefail
+          commit="$(git ls-remote https://github.com/matuto-ai/psst.git refs/heads/main | cut -f1)"
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: matuto-ai/psst
-          ref: f32ddc79ec7b812062ed3f6de7b9a0c12a7128f3
+          ref: ${{ steps.psst-source.outputs.commit }}
           path: ai-agent-msg-broker
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24.19.0'
+      - name: Verify resolved Psst source
+        run: node scripts/test-source.mjs ../ai-agent-msg-broker '${{ steps.psst-source.outputs.commit }}'
+        working-directory: claude-code-review-pair
       - name: Verify release version and package
         working-directory: claude-code-review-pair
         env:
