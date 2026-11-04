@@ -1,3 +1,8 @@
+# 0.7.0 — Unreleased
+
+- Align the npm package, native plugin and GitHub/npm marketplace catalogs with the 0.7.0 release set. This change does not publish a package or release.
+- Includes explicit `/psst:reauthorize` and safe recovery of pending/unusable approval candidates merged in PR #34.
+
 # 0.6.0 — Unreleased
 
 - Add an administrator-owned npm catalog entry that retains `psst@psst-connectors`; distinguish source/seed ownership and declared native MCP from actual attachment in sanitized read-only diagnostics.
