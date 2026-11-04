@@ -1,6 +1,6 @@
 # Psst for Claude Code
 
-> **Unreleased 0.6.0 migration candidate.** This version moves to `@matuto-ai/claude-psst-connector`. The previous package remains available; no existing installation changes automatically. Use the versioned commands only after the new publication is verified. See [migration checklist](docs/migration-0.6.0.md).
+> **Unreleased 0.7.0 release candidate.** This version moves to `@matuto-ai/claude-psst-connector`. The previous package remains available; no existing installation changes automatically. Use the versioned commands only after the new publication is verified. See [migration checklist](docs/migration-0.6.0.md).
 
 Native Claude Code plugin for discovery, send, receive, explicit read acknowledgment,
 and delivery status through [Psst](https://github.com/matuto-ai/psst).
@@ -22,10 +22,10 @@ supported upgrade workflow and the later owner-machine integration checks.
 
 ## Install from GitHub
 
-After release `v0.6.0` is published, install the pinned release:
+After release `v0.7.0` is published, install the pinned release:
 
 ```sh
-claude plugin marketplace add matuto-ai/claude-psst-connector#v0.6.0
+claude plugin marketplace add matuto-ai/claude-psst-connector#v0.7.0
 claude plugin install psst@psst-connectors
 ```
 
@@ -137,7 +137,7 @@ After npm publication is verified, install the released package into a private
 local tools directory (reuse your existing prefix when updating):
 
 ```sh
-npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-psst-connector@0.6.0
+npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-psst-connector@0.7.0
 "$HOME/.local/share/psst-claude/node_modules/.bin/psst-claude" doctor
 ```
 
