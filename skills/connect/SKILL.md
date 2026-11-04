@@ -78,3 +78,9 @@ before ACK. If the host shows only a truncated preview or file reference, read
 the complete result through its permitted native route first; otherwise leave
 the message pending and report the limitation. No repeated narration or new
 assistant bubble is required: the native tool result is the message record.
+
+
+For deliberate replacement authorization, prefer /psst:reauthorize: it previews
+broker_url, obtains target-specific confirmation, and calls the existing setup
+replacement flow once. Repeated invocations resume the candidate. Replacement
+never revokes the old credential; revocation is a separate human admin action.

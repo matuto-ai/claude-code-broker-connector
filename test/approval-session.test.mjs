@@ -19,7 +19,7 @@ test('cancel during pending begin fences late approval without attaching',async(
  assert.equal((await started).state,'cancelled');assert.equal(f.counts().attachments,0);
 });
 test('explicit replacement supplies exact prior request and terminal denial does not poll',async t=>{
- let options;const f=fixture({beginApproval:async x=>{options=x;return {...pending,state:'denied'};}});t.after(()=>f.instance.cancel());
+ let options;const f=fixture({readApprovalState:()=>({...pending,state:'approved'}),beginApproval:async x=>{options=x;return {...pending,state:'denied'};}});t.after(()=>f.instance.cancel());
  assert.equal((await f.instance.start({brokerUrl:'https://broker.invalid'},{replace:true})).state,'denied');assert.equal(options.replaceRequestId,pending.requestId);await delay(30);assert.equal(f.counts().polls,0);assert.equal(f.counts().attachments,0);
 });
 test('native lifetime ending fences poll approval',async t=>{
