@@ -37,11 +37,18 @@ jobs:
         working-directory: claude-code-review-pair
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+          PSST_VERIFIED_PACKAGE_OUTPUT_DIR: ${{ runner.temp }}/verified-package
         run: |
           node --input-type=module -e 'import fs from "node:fs";const p=JSON.parse(fs.readFileSync("package.json"));if(process.env.RELEASE_TAG!==`v${p.version}`)throw Error("Tag must match package version")'
           npm run check
           npm test
           npm run test:integration
+      - name: Retain exact verified package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: claude-verified-package-${{ github.sha }}
+          path: ${{ runner.temp }}/verified-package/*
+          if-no-files-found: error
   publish:
     needs: verify
     runs-on: ubuntu-24.04
@@ -57,4 +64,13 @@ jobs:
         with:
           node-version: '24.19.0'
           registry-url: https://registry.npmjs.org
-      - run: npm publish --access public --provenance
+      - name: Download exact verified package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: claude-verified-package-${{ github.sha }}
+          path: verified-package
+      - name: Publish the verified tarball without rebuilding
+        working-directory: verified-package
+        run: |
+          sha256sum --check --strict SHA256SUMS
+          npm publish ./*.tgz --ignore-scripts --access public --provenance

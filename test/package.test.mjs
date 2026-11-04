@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 
-import { verifyPackageArtifact, assertRuntimeVersion } from '../scripts/package-provenance.mjs';
+import { verifyPackageArtifact, assertRuntimeVersion, preserveVerifiedArtifact } from '../scripts/package-provenance.mjs';
 import { fileURLToPath } from 'node:url';
 
 test('packed native plugin installs without lifecycle scripts or sibling checkout', {timeout:30000},async t=>{
@@ -41,6 +41,7 @@ test('packed native plugin installs without lifecycle scripts or sibling checkou
  const catalog=JSON.parse(readFileSync(join(root,'distribution/npm-marketplace.json')));
  assert.equal(catalog.name,marketplace.name);
  assert.deepEqual(catalog.plugins.find(plugin=>plugin.name==='psst').source,{source:'npm',package:sourcePackage.name,version:sourcePackage.version});
+ preserveVerifiedArtifact({archive:join(temp,artifact.filename),evidence:{...evidence,runtime_version:runtimeVersion},destination:process.env.PSST_VERIFIED_PACKAGE_OUTPUT_DIR});
 });
 
 // This starts the shipped MCP entrypoint with private disposable configuration.
