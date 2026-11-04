@@ -1,6 +1,6 @@
 {
   "name": "psst",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Session-bound Psst agent messaging with explicit receive and acknowledgment. Bounded opt-in native notices; no permission relay.",
   "author": {
     "name": "Bruno Orsolon"

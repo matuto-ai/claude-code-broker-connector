@@ -102,7 +102,8 @@ disconnect other sessions. New sessions remain eligible to connect.
 The official monitor `when: "always"` starts on native interactive session start
 and plugin reload. It stays silent disconnected, uses only body-free status,
 retains bounded reminders, and exits when its exact native binding ends. It waits
-up to ten seconds for a delayed matching SessionStart; it never synthesizes one.
+silently for a delayed canonical SessionStart while the same native host remains
+alive; it never synthesizes one or uses the startup session hint as authority.
 Headless `-p` does not run these plugin monitors. No native trust/auth policy is
 changed. Actual authenticated monitor notification arrival and model response
 still require a live acceptance test, separately from fixture and manifest checks.

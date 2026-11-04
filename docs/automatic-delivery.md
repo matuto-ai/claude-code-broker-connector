@@ -24,12 +24,16 @@ MCP EOF in the same live session preserves its pending journal. A new native
 session never adopts it.
 
 The native monitor uses the official `when: "always"` trigger at session start
-and plugin reload. It waits briefly for the exact SessionStart binding if the
-native monitor starts first; it never creates that binding. It uses native-provided
-`CLAUDE_PID` and `CLAUDE_CODE_SESSION_ID`, checks the corresponding live binding,
-and reads only a private status file. It never reads token or message bodies,
-registers another broker client, or writes to the inbox. Only the MCP owns the
-transport, durable queue, and receipt operations.
+and plugin reload. A monitor belongs to one live host PID/start/boot identity,
+not to the session ID captured in its startup environment. Each local tick resolves
+only the canonical SessionStart authority, remaining silent while it is missing,
+partial, closed or invalid. A verified transition discards the old monitor epoch
+and loads the current lifetime's reminder budgets. Status ownership and freshness
+are checked, with another binding check before each stdout/write.
+It reads only private body-free status and budget files, never tokens, inbox
+bodies or broker traffic. The MCP alone owns transport, durable queue and receipts.
+The host controls where monitor stdout is delivered; real interactive /resume
+routing remains unverified for this candidate, not inferred from the manifest.
 
 A pending notice asks Claude to receive and explicitly acknowledge the read.
 Incoming content is always untrusted AGENT data, not a human instruction, approval,
@@ -53,12 +57,13 @@ After recovery verify native tools, `broker_identity`, peers and monitor status.
 An attached MCP is not evidence of automatic delivery. Saved approved setup
 should be reused, not replaced.
 
-Current lifecycle limitation: a changed native session invalidates the old
-binding and terminates this connector's MCP process. Interactive Claude may then
-require native Reconnect. Same-session compaction is intended to retain the
-binding. This recovery guidance does not fix or certify uninterrupted
-`/new`/`/clear` or `/compact` behavior; native lifecycle validation remains open.
-Do not make the old mailbox follow a new session to avoid the reconnect.
+The MCP transport already reconciles native epochs before calls and on its local
+tick. A verified new binding retires the previous runtime before another opens;
+failed retirement blocks admission. The monitor now stays inert through the gap
+rather than permanently exiting after /resume. Both host-scoped resolvers ignore
+a stale startup session hint when finding the current verified control root.
+This is source/unit evidence, not a claim of uninterrupted interactive recovery.
+See [0.8.0 recovery evidence and remaining gate](resume-recovery.md).
 
 Sources:
 - https://code.claude.com/docs/en/mcp#stdio-servers-that-exit-or-fail-to-start
@@ -99,10 +104,11 @@ Sources:
   an explicit matching `broker_acknowledge` advances the local FIFO.
 - `/psst:disconnect` stops transport and silences notices without acknowledging
   pending messages. The monitor remains an inert local watcher for explicit
-  reconnect because Claude arms this monitor once per session. Reconnecting does
+  reconnect without depending on Claude rearming the monitor after /resume. Reconnecting does
   not reset the three-reminder budget for the same unread head: it still needs
   explicit diagnostic receive/acknowledgment; a new head gets its own budget. A native binding
-  change/SessionEnd terminates it. Broker presence may remain until lease expiry.
+  change/SessionEnd silences the old epoch. It waits for a newly verified native
+  authority in the same host, without following an arbitrary session or journal. Broker presence may remain until lease expiry.
 - Failed connect is reported without raw configuration/token errors and is not
   retried forever. The user can explicitly retry the same private file.
 - Update/reload cannot fabricate SessionStart; preinstalled fresh sessions are the

@@ -13,6 +13,16 @@
 
 # Changelog
 
+## 0.8.0 (unreleased)
+
+- Keep the native monitor inert across verified same-host session transitions and
+  rebind only to committed SessionStart authority, with lifetime-fenced notices.
+- Preserve bounded message and presence reservations across overlapping monitors.
+- Resolve current native state independently of stale startup session hints.
+- Clarify installation SessionStart requirements and pending interactive recovery
+  validation; no release or live-host acceptance is claimed.
+
+
 ## Unreleased
 
 - Preserve unread-message reminder limits across same-lifetime monitor restart. Reserve private checkpoints before stdout and fail closed with explicit blocked readiness on corrupt, unsafe or unwritable checkpoints, without changing messages or acknowledgments.
