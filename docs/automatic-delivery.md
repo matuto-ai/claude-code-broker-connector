@@ -157,11 +157,9 @@ the old flag to infer failure. The byte-pinned diagnostic legacy reference still
 returns the old flag with this same capability meaning. No native receipt is
 inserted into the database, and no pending item is consumed by status or receive.
 
-Identity and setup status report local readiness: `not_connected`,
-`blocked_monitor_not_observed`, `blocked_notice_budget_unavailable`, or
-`monitor_observed`. The last value replaces
-`native_wakeup_acceptance_unverified`; it means the exact session's current
-monitor state was recently observed, not that the monitor caused a model turn.
+Identity and setup status report transport health separately from local monitor observation. The `transport` snapshot contains `heartbeat`, `reception`, `recovery` and the current sanitized `error_code`; successful mailbox polls, including empty ones, clear the active reception failure. An ordinary in-flight long poll is not a stalled receiver. `transport_retry_waiting` and `transport_recovering` mean host-owned automatic recovery is pending/running, without model polling, manual connect, MCP restart or replacement approval. Recovery rounds are bounded and spaced; a later eligible supervision check can start another round rather than permanently giving up. Human pauses, disconnect, session changes and permanent blockers are not automatic-recovery candidates.
+
+Readiness can also be `blocked_transport`, `paused_receiving`, `transport_stopped`, `receiving_disabled` or `transport_starting`. Otherwise the local observations remain `not_connected`, `blocked_monitor_not_observed`, `blocked_notice_budget_unavailable` or `monitor_observed`. The last value replaces `native_wakeup_acceptance_unverified`; it means the exact session's current monitor state was recently observed, not that reception is healthy or the monitor caused a model turn.
 The accompanying attention/rate-limit state remains authoritative. Neither
 missing observation after an ACK nor unavailable transcript receipts invalidates
 a confirmed read ACK. A successful human pilot can be recorded independently

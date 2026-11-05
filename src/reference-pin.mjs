@@ -1,12 +1,12 @@
 import { readFileSync, lstatSync } from 'node:fs';
 import { join, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
-// Reviewed registration-v2 SDK from Psst PR40.
-export const REFERENCE_COMMIT = 'f32ddc79ec7b812062ed3f6de7b9a0c12a7128f3';
+// Shared Psst heartbeat-recovery candidate; publication boundary is in vendor/psst/NOTICE.md.
+export const REFERENCE_COMMIT = '7589697e253b2502448d5f7d734c85c775444cb3';
 const HASHES = Object.freeze({
   "reference/inbox.mjs": "fbf0fa6096996cb9bc3f928e55f3eca496420880a03460e993dda3417b32ad88",
-  "reference/client.mjs": "e8ab94e6de6b5afb17b1dded9839fefa26481fef87ed715b041c09d41dbc93d5",
-  "reference/runtime.mjs": "8fdaa105b2e81aeaabb628131671989f951148f602844bca6819af827269f2c3",
+  "reference/client.mjs": "bb965e7d0bb697b2548a461e956ba68aa72e3c8ba8ed329f9989a5001079b0da",
+  "reference/runtime.mjs": "8995f7f130482e6b28298662f9dc4c5ddbd185143b7557f5e8004f3d09a3dbbb",
   "reference/tools.mjs": "e1836d5c33ed80a9e15c1ca9d07888c9db3caf40aeb2a115c813f74a45077c6e",
   "reference/mcp-stdio.mjs": "88c61c995f9285ef7e22c401d7f0cf50fefc7dd6c76ae79c6bcc94097a33a5c3",
   "reference/errors.mjs": "85b0d0736c5a439f7c66697c3b1ce6cee998cda744dd3169c856ebf2b82bd2a7",

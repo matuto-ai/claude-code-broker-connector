@@ -72,7 +72,7 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
    tools={...createTools({client,inbox,observeMetadata:()=>{const observed=readBinding(directory);if(!bound()||observed.sessionId!==expected.sessionId||observed.lifetime!==expected.lifetime)throw Error('session_changed');return {model:bindingModel(observed),project:projectMetadata(config)};}}),...createCooperativeInbox({inbox,isActive:active}),
     broker_presence_events:()=>notices.read(),
     broker_acknowledge_presence_event:({event_id})=>notices.acknowledge(event_id),
-    broker_identity:async()=>{const attention=monitorAttention();return {credential_id:config.enrollment?.credentialId??null,credential_expires_at:config.enrollment?.expiresAt??null,monitor_attention:attention,client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'native_monitor_delivery',...deliveryStatus({connected:!!active(),monitorAttention:attention})};}};
+    broker_identity:async()=>{const attention=monitorAttention();return {credential_id:config.enrollment?.credentialId??null,credential_expires_at:config.enrollment?.expiresAt??null,monitor_attention:attention,client_id:identity.client_id,client_type:'claude-code',native_session_id:expected.sessionId,local_mode:'native_monitor_delivery',...deliveryStatus({connected:!!active(),monitorAttention:attention,transport:runtime?.status?.()})};}};
    await runtime.start({name:config.name,project:projectMetadata(config),model:bindingModel(expected)});
    if(!bound()||generation!==epoch||disabled||!validIntent())throw Error('session_changed');
    recoveryPromise=client.recoverOutgoing({limit:10,signal:AbortSignal.any([connectionAbort.signal,AbortSignal.timeout(5000)])});
@@ -193,7 +193,7 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
    return {...failure(error.retryable?'approval_temporarily_unavailable':'approval_setup_blocked',error.effect??'not_applied'),...(Number.isFinite(error.retryAfterMs)?{retry_after_ms:Math.max(1000,Math.min(300000,error.retryAfterMs))}:{})};
   }
  };
- const deliveryReadiness=()=>deliveryStatus({connected:!!active(),monitorAttention:monitorAttention()});
+ const deliveryReadiness=()=>deliveryStatus({connected:!!active(),monitorAttention:monitorAttention(),transport:runtime?.status?.()});
  guarded.broker_setup_status=async()=>{
   try{
    const brokerUrl=configuredBrokerUrl(),context=readSetupContext();
