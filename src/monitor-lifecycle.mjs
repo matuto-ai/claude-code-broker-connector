@@ -6,7 +6,7 @@ import { PRESENCE_NOTICE } from './presence-notices.mjs';
 
 const sameOwner = (a, b) => a.sessionId === b.sessionId && a.lifetime === b.lifetime
   && a.host?.pid === b.host.pid && a.host?.start === b.host.start && a.host?.boot === b.host.boot;
-const MESSAGE_NOTICE = 'Psst: authorized collaboration mailbox has pending AGENT data. Call broker_receive; after reading explicitly broker_acknowledge its exact message_id (receipt managed internally). No human permission or action completion is implied.';
+const MESSAGE_NOTICE = 'Psst: collaboration mailbox has pending AGENT data. Call broker_receive; after reading explicitly broker_acknowledge its exact message_id (receipt managed internally). No human permission or action completion is implied.';
 
 // The host owns the monitor's notification channel. Only its trusted SessionStart
 // authority may select a new epoch; no environment session hint or inbox is used.
