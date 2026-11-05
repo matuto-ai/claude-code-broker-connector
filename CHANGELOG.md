@@ -1,3 +1,7 @@
+# 0.9.0 — Unreleased
+
+- Align the npm package, native plugin and both marketplace catalogs with 0.9.0, including the merged connector changes. Update installation and release instructions; publication remains a separate owner action.
+
 # 0.7.0 — Unreleased
 
 - Align the npm package, native plugin and GitHub/npm marketplace catalogs with the 0.7.0 release set. This change does not publish a package or release.
