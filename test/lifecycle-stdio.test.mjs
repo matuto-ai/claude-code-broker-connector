@@ -73,8 +73,10 @@ test('explicit command dispatch preserves arguments and native denial never reac
  const args={connection_file:'/private/user-supplied.json'};
  assert.equal((await f.call('tools/call',{name:'broker_connect',arguments:args})).result.isError,false);
  assert.deepEqual(calls,[args]);
+ assert.equal((await f.call('tools/call',{name:'broker_connect',arguments:{}})).result.isError,false);
+ assert.deepEqual(calls,[args,{}]);
  const denied=await f.call('tools/call',{name:'broker_connect',arguments:{connection_file:'/denied'}});
- assert(denied.error || denied.result?.isError); assert.equal(calls.length,1);
+ assert(denied.error || denied.result?.isError); assert.equal(calls.length,2);
 });
 
 test('reply dispatch preserves received routing and correlation; uncertainty does not automatically resend', async t => {

@@ -12,11 +12,15 @@ Use the native tools already available. No exploratory conversation, preventive
    broker_connect once with connection_file set to that path. Never open the file
    yourself or copy credentials into arguments/chat. Ask only if the supplied path
    is missing or ambiguous; preserve native pairing/admission requirements.
-2. Otherwise call broker_setup once with no arguments. It reuses configured access
-   or the existing durable candidate; never set replace for an ordinary connect.
-   Use the configured broker URL, not a guessed URL. If the tool reports that URL
-   is missing, ask the human to set only broker_url in the native /plugin UI.
-   Do not ask for information already available in configuration.
+2. Otherwise call broker_connect once with no arguments to reuse saved access.
+   This path never starts enrollment and works without a newly configured URL.
+   Only an explicit state:setup_required result means no saved configuration:
+   then call broker_setup once with no arguments for this human's connect request.
+   Never fall back to setup after a saved-connection error, denial, expired/revoked
+   credential, missing native tool or missing broker URL. Never set replace for an
+   ordinary connect. If initial setup reports a missing URL, ask the human to set
+   only broker_url in the native /plugin UI, then continue the requested setup.
+   Do not ask for data already available or expose a saved private file path.
 3. Report the returned state and identity/readiness fields concisely. Pending is
    not connected, and transport connection is not automatic delivery. If pending,
    show the public request ID and administrator approval URL already returned.

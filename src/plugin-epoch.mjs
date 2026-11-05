@@ -86,13 +86,35 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
   return toolScope.run(async signal=>{const result=await tools[name](args,{...context,signal});status();return result;},context?.signal);
  }]));
  let pairing=false;
- const explicitConnect=async({connection_file})=>{
+ const explicitConnect=async({connection_file}={})=>{
   approvalSession?.cancel();
   // Explicit user intent supersedes deferred startup resume, including failed attempts.
   autoAttempted=true;
   if(pairing||connecting||approvalTransition)return failure('connection_busy');
   if(!confirm())return failure('session_binding_unavailable');
   try{
+   if(connection_file===undefined){
+    // Reconnect is reuse-only. Do not turn missing native URL, failed saved
+    // credentials, or a legacy pairing selection into a new approval request.
+    let config=connectedConfig;
+    if(!config){
+     try{const a=readPrivateJson(join(directory,'activation.json'));if(a.sessionId===expected.sessionId&&a.lifetime===expected.lifetime&&a.config)config=a.config;}
+     catch(error){if(error.code!=='ENOENT')throw error;}
+    }
+    if(!config)config=legacyConfig;
+    if(!config){
+     const selection=readSelection();
+     if(selection)config=readPluginConfig(selection.connection_file);
+     else{
+      try{config=readPluginConfig();}
+      catch(error){
+       if(error.code==='ENOENT'&&!process.env.PSST_CLAUDE_CONFIG&&!process.env.PSST_CONFIG_FILE)return {state:'setup_required',connected:false};
+       throw error;
+      }
+     }
+    }
+    return await connect(config);
+   }
    let selectionRevision=null,selectionReadable=true;const selectionEpoch=generation;
    try{selectionRevision=readSelection()?.revision??null;}catch{selectionReadable=false;}
    const remember=(result,file)=>{if(!result?.client_id||!active()||selectionEpoch!==generation)return result;let selection;
@@ -109,7 +131,7 @@ async function stop(closeSession){connected=false;status();connectionAbort?.abor
     return remember(await connect(readPluginConfig(result.connectionFile)),result.connectionFile);
    }
    return remember(await connect(readPluginConfig(connection_file)),connection_file);
-  }catch(error){if(error.message==='configured_broker_mismatch'||error.message==='broker_origin_mismatch')return failure('configured_broker_mismatch');return failure(error.effect==='unknown'?'enrollment_or_connection_uncertain':'invalid_connection_file',error.effect==='unknown'?'unknown':'not_applied');}
+  }catch(error){if(error.message==='configured_broker_mismatch'||error.message==='broker_origin_mismatch')return failure('configured_broker_mismatch');return failure(connection_file===undefined?'invalid_saved_connection':error.effect==='unknown'?'enrollment_or_connection_uncertain':'invalid_connection_file',error.effect==='unknown'?'unknown':'not_applied');}
   finally{pairing=false;}
  };
  guarded.broker_connect=args=>explicitConnect(args);

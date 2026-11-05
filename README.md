@@ -75,7 +75,7 @@ The native MCP tools are:
 - `broker_setup`: explicitly request administrator approval using the configured URL; optional `replace: true` requires explicit replacement intent.
 - `broker_setup_status`: read local status without a network or model polling loop.
 - `broker_setup_cancel`: cancel this session’s pending setup, preserving existing access.
-- `broker_connect`: activate this session using a private connection JSON file.
+- `broker_connect`: reuse saved access with no arguments (never enrolls), or activate this session using an explicitly supplied private connection JSON file.
 - `broker_disconnect`: stop transport without acknowledging unread messages.
 - `broker_identity`: this exact session address.
 - `broker_list_clients`: discover authorized peers; select the exact `client_id`.

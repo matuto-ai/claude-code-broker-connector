@@ -21,7 +21,7 @@ test('connect dispatch precedes conditional troubleshooting and reuses parameter
  assert(skill.indexOf('broker_connect once')<skill.indexOf('A failed operation or absent native tool'));
  assert(skill.indexOf('broker_setup once with no arguments')<skill.indexOf('A failed operation or absent native tool'));
  assert.match(skill,/connection_file set to that path/);
- assert.match(skill,/never set replace for an ordinary connect/);
+ assert.match(skill,/Never set replace for an\n   ordinary connect/);
  assert.match(skill,/Do not automatically list peers/);
  assert.match(skill,/do not ask whether to connect/);
  assert.match(skill,/no model polling loop/);
