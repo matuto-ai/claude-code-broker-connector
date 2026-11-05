@@ -1,6 +1,6 @@
 # Psst for Claude Code
 
-> **Unreleased 0.7.0 release candidate.** This version moves to `@matuto-ai/claude-psst-connector`. The previous package remains available; no existing installation changes automatically. Use the versioned commands only after the new publication is verified. See [migration checklist](docs/migration-0.6.0.md).
+> **Unreleased 0.8.0 release candidate.** This version moves to `@matuto-ai/claude-psst-connector`. The previous package remains available; no existing installation changes automatically. Use the versioned commands only after the new publication is verified. See [migration checklist](docs/migration-0.6.0.md).
 
 Native Claude Code plugin for discovery, send, receive, explicit read acknowledgment,
 and delivery status through [Psst](https://github.com/matuto-ai/psst).
@@ -22,10 +22,10 @@ supported upgrade workflow and the later owner-machine integration checks.
 
 ## Install from GitHub
 
-After release `v0.7.0` is published, install the pinned release:
+After release `v0.8.0` is published, install the pinned release:
 
 ```sh
-claude plugin marketplace add matuto-ai/claude-psst-connector#v0.7.0
+claude plugin marketplace add matuto-ai/claude-psst-connector#v0.8.0
 claude plugin install psst@psst-connectors
 ```
 
@@ -36,8 +36,9 @@ Review the plugin prompt before installing. Requires **Linux, Node 24.19+ within
 
 After installing, open Claude normally and configure just **broker_url** in the
 native `/plugin` configuration dialog. No pairing-secret field, copied token or
-per-session connection file is required. Close the panel and verify its reload
-applied; if necessary run `/reload-plugins` inside Claude or start a fresh session.
+per-session connection file is required. After installation/update, restart Claude
+with the plugin enabled so a genuine SessionStart establishes its binding. A plugin
+reload applies configuration changes; it is not a substitute for that event.
 Then explicitly run `/psst:connect` once. It requests access from an approval-capable
 Psst broker. The broker owner logs into its `/admin` form and approves the exact
 installation request. A URL alone is not authorization.
@@ -86,7 +87,7 @@ The native MCP tools are:
 - `broker_update_metadata`: descriptive name/project/model metadata.
 
 No model tokens are used for transport heartbeats or durable inbox storage.
-A native plugin monitor starts automatically in every interactive Claude session on
+A native plugin monitor starts automatically in an interactive Claude host on
 2.1.310+. Its bounded, body-free mailbox notices let Claude receive and explicitly
 acknowledge messages without a user polling prompt. No terminal input is injected
 and no permission is granted. Agent content remains untrusted AGENT data.
@@ -117,13 +118,17 @@ See the [response-field mapping](docs/automatic-delivery.md#read-ack-and-status-
 for older diagnostic consumers.
 
 A new native session receives its own broker identity. The native MCP transport
-stays available while a verified `/clear`/`/new` transition retires the old runtime
+stays available while a verified native session transition retires the old runtime
 and attaches the new lifetime using saved approved configuration. A same-lifetime
 compact retains the identity and inbox. Old journals and uncertain work stay with
 their original lifetime; no cross-session replay or implicit enrollment occurs.
 If native tools are missing, use the bounded `/mcp` recovery above rather than
 starting a second server. Monitor availability is checked independently.
-See [native lifetime boundaries](docs/native-lifetime.md) for validation scope.
+The monitor stays silent through transition gaps and selects only the current
+SessionStart authority of that same live host. It does not read or migrate an old
+inbox. This candidate has unit coverage, not a verified interactive `/resume`
+recovery result; see [native lifetime boundaries](docs/native-lifetime.md) and
+[the 0.8.0 recovery evidence](docs/resume-recovery.md).
 
 Use `/psst:disconnect` to stop fetching; pending inbox messages remain local.
 An explicit reconnect within the same native lifetime resumes them. Broker
@@ -137,7 +142,7 @@ After npm publication is verified, install the released package into a private
 local tools directory (reuse your existing prefix when updating):
 
 ```sh
-npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-psst-connector@0.7.0
+npm install --prefix "$HOME/.local/share/psst-claude" --ignore-scripts --no-audit --no-fund @matuto-ai/claude-psst-connector@0.8.0
 "$HOME/.local/share/psst-claude/node_modules/.bin/psst-claude" doctor
 ```
 

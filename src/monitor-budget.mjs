@@ -23,10 +23,18 @@ function withBudgetLock(path, operation) {
 
 // A reminder reservation is private local state, never a delivery/read receipt.
 // Save before stdout: an interrupted write must not mint another reminder.
-export function monitorBudget({ path, binding, read = readPrivateJson, write = writePrivateJson }) {
+export function monitorBudget({ path, binding, legacyPath, read = readPrivateJson, write = writePrivateJson }) {
   function load() {
     let saved;
-    try { saved = read(path); } catch (error) { if (error.code === 'ENOENT') return noticeBudget(); throw error; }
+    try { saved = read(path); } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      if (!legacyPath) return noticeBudget();
+      // Preserve the current lifetime's pre-0.8 checkpoint without moving it.
+      try { saved = read(legacyPath); } catch (legacyError) {
+        if (legacyError.code === 'ENOENT') return noticeBudget();
+        throw legacyError;
+      }
+    }
     if (!saved || typeof saved.sessionId !== 'string' || typeof saved.lifetime !== 'string'
       || !Number.isSafeInteger(saved.host?.pid) || typeof saved.host?.start !== 'string'
       || typeof saved.host?.boot !== 'string' || !saved.checkpoint) throw Error('invalid_monitor_budget');

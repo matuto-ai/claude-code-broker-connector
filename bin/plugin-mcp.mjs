@@ -23,7 +23,7 @@ try {
  catch(error){if(error.code!=='ENOENT')process.stderr.write('psst_default_config_invalid: staying disconnected; provide a valid private connection file.\n');return null;}};
  const hostAlive=()=>{try{const now=processIdentity(host.pid);return now.start===host.start&&now.boot===host.boot;}catch{return false;}};
  manager=createNativeEpochManager({hostAlive,
-  resolve(){const legacyConfig=loadLegacy(),nativeConfig=nativeStateConfig(process.env,host);const found=resolveNativeBinding({nativeConfig,legacyConfig,host});return found?{...found,nativeConfig,legacyConfig,dependencies}:null;},
+  resolve(){const legacyConfig=loadLegacy(),nativeConfig=nativeStateConfig(process.env,host,null);const found=resolveNativeBinding({nativeConfig,legacyConfig,host});return found?{...found,nativeConfig,legacyConfig,dependencies}:null;},
   create:createPluginEpoch
  });
  const synchronize=manager.synchronize;
