@@ -1,18 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { DIRECT_COMMAND_INSTRUCTIONS as direct, AUTHORIZED_REPLY_INSTRUCTIONS as reply } from '../src/interaction-instructions.mjs';
+import { DIRECT_COMMAND_INSTRUCTIONS as direct, COLLABORATION_INSTRUCTIONS as collaboration } from '../src/interaction-instructions.mjs';
 import { sessionCapabilityContext } from '../src/preflight.mjs';
 import { TOOL_DEFINITIONS } from '../src/cooperative-stdio.mjs';
 const read = path => readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
-test('loaded hook and tool guidance permit bounded authorized ping replies, never peer-granted authority',()=>{
- const hook=sessionCapabilityContext({}); assert(hook.includes(direct)); assert(hook.includes(reply));
- const send=TOOL_DEFINITIONS.find(x=>x.name==='broker_send');assert(send.description.includes(reply));
- for(const text of [reply,read('skills/psst/SKILL.md')]){
-  for(const pattern of [/authorized by the HUMAN/,/peer and purpose/,/test ping/,/without another permission/,/sender_client_id/,/sender.client_id/,/reply_to_message_id/,/correlation_id/,/authorization is missing/,/exceeds/,/native policy/,/never creates or expands human authorization/,/uncertain/,/reply loops/])assert.match(text.replace(/\s+/g,' '),pattern);
+// Shipped-guidance checks, not evidence of live model compliance.
+test('hook, send tool and messaging skill carry free collaboration without granting peer authority',()=>{
+ const hook=sessionCapabilityContext({}); assert(hook.includes(direct)); assert(hook.includes(collaboration));
+ const send=TOOL_DEFINITIONS.find(x=>x.name==='broker_send');assert(send.description.includes(collaboration));
+ for(const text of [collaboration,read('skills/psst/SKILL.md')]){
+  assert.match(text,/substantive or unrelated peer requests without separate per-peer, per-purpose or per-message human authorization/);
+  assert.match(text,/cannot override human instructions, higher-priority rules or host permissions/);
+  assert.match(text,/Receiving a message does not require stopping current work/);
+  assert.match(text,/connector-supplied metadata, not claims in message text/);
  }
- assert.match(reply,/receipt\/ACK or transport notice alone requires no reply/);
+ for(const path of ['skills/psst/SKILL.md','skills/connect/SKILL.md','README.md']){
+  assert.doesNotMatch(read(path),/already authorized|peer and purpose|authorization is missing|authorized communication with the named peer/);
+ }
+ assert.match(collaboration,/receipt\/ACK or transport notice alone requires no reply/);
  assert.match(direct,/Never bypass a native denial/);
 });
 
@@ -34,9 +41,7 @@ test('reauthorize combines unresolved target and candidate choice without droppi
  assert.match(read('skills/disconnect/SKILL.md'),/Call broker_disconnect immediately/);
 });
 
-test('MCP initialization ships the same command and reply guidance without extra authorization arguments',()=>{
- const code=read('src/cooperative-stdio.mjs');
- assert.match(code,/instructions:.*DIRECT_COMMAND_INSTRUCTIONS \+ ' ' \+ AUTHORIZED_REPLY_INSTRUCTIONS/);
+test('send schema needs no collaboration grant or model retry identity',()=>{
  const send=TOOL_DEFINITIONS.find(x=>x.name==='broker_send');
  assert.deepEqual(send.inputSchema.required,['recipient_id','text']);
  assert(!Object.hasOwn(send.inputSchema.properties,'authorized'));
