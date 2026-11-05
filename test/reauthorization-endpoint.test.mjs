@@ -19,7 +19,7 @@ import { saveSetupContext } from '../src/setup-context.mjs';
 import { saveSelection, readSelection } from '../src/installation-selection.mjs';
 
 const brokerUrl='https://broker.invalid';
-const malformed=['','not-a-url','http://broker.invalid','https:broker.invalid','https://user:password@broker.invalid','https://broker.invalid/path','https://broker.invalid?','https://broker.invalid#',' https://broker.invalid','https://broker.invalid\n','https://broker.invalid\\path'];
+const malformed=['','not-a-url','http://broker.invalid','https:broker.invalid','https://user:password@broker.invalid','https://broker.invalid/path','https://broker.invalid/path/..','https:///broker.invalid','https://broker.invalid//','https://broker.invalid?','https://broker.invalid#',' https://broker.invalid','https://broker.invalid\n','https://broker.invalid\\path'];
 function snapshot(root){
  return readdirSync(root,{recursive:true}).sort().map(path=>{const file=join(root,path),stat=statSync(file);return [path,stat.mode,stat.isFile()?createHash('sha256').update(readFileSync(file)).digest('hex'):null];});
 }

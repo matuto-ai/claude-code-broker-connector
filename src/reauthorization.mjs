@@ -3,8 +3,9 @@ export const REAUTHORIZE_USAGE = 'Usage: /psst:reauthorize <https://broker.examp
 export function setupEndpoint({replace=false,expectedBrokerUrl}){
  if(!replace&&expectedBrokerUrl===undefined)return undefined;
  try{
+  if(typeof expectedBrokerUrl!=='string'||expectedBrokerUrl.length>2048||!/^https:\/\/[^/\\?#]+\/?$/i.test(expectedBrokerUrl)||/[\u0000-\u0020\u007f]/u.test(expectedBrokerUrl))throw Error();
   const url=new URL(expectedBrokerUrl);
-  if(typeof expectedBrokerUrl!=='string'||expectedBrokerUrl.length>2048||!/^https:\/\//i.test(expectedBrokerUrl)||/[\u0000-\u0020\u007f\\?#]/u.test(expectedBrokerUrl)||url.protocol!=='https:'||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw Error();
+  if(url.protocol!=='https:'||url.username||url.password)throw Error();
   return url.origin;
  }catch{throw Error('invalid_reauthorization_endpoint');}
 }
