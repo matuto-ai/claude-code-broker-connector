@@ -15,6 +15,10 @@
 
 ## 0.8.0 (unreleased)
 
+- Execute human slash requests directly, consolidate unresolved target/choice
+  confirmation, and align skills/native instructions with already-authorized
+  peer replies and exact metadata routing. Native guards and delivery stay intact.
+
 - Keep the native monitor inert across verified same-host session transitions and
   rebind only to committed SessionStart authority, with lifetime-fenced notices.
 - Preserve bounded message and presence reservations across overlapping monitors.
