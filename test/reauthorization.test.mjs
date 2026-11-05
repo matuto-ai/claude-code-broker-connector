@@ -31,7 +31,9 @@ test('discoverable user-only skill has fixed dispatch, confirmation, native bind
  const skill=readFileSync(new URL('../skills/reauthorize/SKILL.md',import.meta.url),'utf8');
  for(const text of ['name: reauthorize','disable-model-invocation: true','broker_setup_status','expected_broker_url','"replace":true','BEFORE confirmation','not token-free','does NOT revoke','approved_not_connected','standalone server','another agent'])assert(skill.includes(text),text);
  const files=JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).files;assert(files.includes('skills/'));
- const epoch=readFileSync(new URL('../src/plugin-epoch.mjs',import.meta.url),'utf8');const body=epoch.slice(epoch.indexOf('guarded.broker_setup=')).split('guarded.broker_setup_status')[0];assert(body.indexOf('expected_broker_url!==brokerUrl')<body.indexOf('saveSetupContext'));
+ assert.match(skill,/argument-hint: <https-broker-endpoint>/);
+ assert(skill.indexOf('validate the invocation arguments')<skill.indexOf('Then verify broker_setup'));
+ assert.match(skill,/Missing\/malformed input: immediately return `Usage:/);
 });
 test('confirmed target is fenced before plan selection and candidate data stays private',()=>{
  assert.throws(()=>plan({expectedBrokerUrl:'https://other.invalid'}),/configured_broker_mismatch/);

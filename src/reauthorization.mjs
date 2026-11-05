@@ -1,4 +1,14 @@
 // Public command planning only. Credential contents never leave the existing helper.
+export const REAUTHORIZE_USAGE = 'Usage: /psst:reauthorize <https://broker.example> (configured HTTPS broker origin; no path, query, fragment or credentials).';
+export function setupEndpoint({replace=false,expectedBrokerUrl}){
+ if(!replace&&expectedBrokerUrl===undefined)return undefined;
+ try{
+  if(typeof expectedBrokerUrl!=='string'||expectedBrokerUrl.length>2048||!/^https:\/\/[^/\\?#]+\/?$/i.test(expectedBrokerUrl)||/[\u0000-\u0020\u007f]/u.test(expectedBrokerUrl))throw Error();
+  const url=new URL(expectedBrokerUrl);
+  if(url.protocol!=='https:'||url.username||url.password)throw Error();
+  return url.origin;
+ }catch{throw Error('invalid_reauthorization_endpoint');}
+}
 export function setupPlan({replace,context,candidate,brokerUrl,selection,expectedBrokerUrl}){
  if(expectedBrokerUrl!==undefined&&expectedBrokerUrl!==brokerUrl)throw Error('configured_broker_mismatch');
  const same=context?.broker_url===brokerUrl;

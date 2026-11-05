@@ -52,7 +52,7 @@ server backoff. It never automatically submits another request. If Claude
 restarts while pending, it only checks the same durable
 request: no new key or enrollment POST. Denial/expiry stop the attempt.
 
-Explicit replacement uses `/psst:connect` with an explicit replacement request;
+Explicit replacement uses `/psst:reauthorize https://broker.example` with the configured broker's endpoint;
 the old connection stays usable until the new approval attaches and selection is
 safely committed. Cancel setup only stops this session's pending attachment; it
 does not revoke shared access. Existing private bundles remain an advanced legacy
@@ -73,7 +73,7 @@ Use Psst for ordinary agent collaboration under existing Claude permissions, or 
 
 The native MCP tools are:
 
-- `broker_setup`: explicitly request administrator approval using the configured URL; optional `replace: true` requires explicit replacement intent.
+- `broker_setup`: explicitly request administrator approval using the configured URL; `replace: true` requires explicit replacement intent and the supplied `expected_broker_url` endpoint.
 - `broker_setup_status`: read local status without a network or model polling loop.
 - `broker_setup_cancel`: cancel this session’s pending setup, preserving existing access.
 - `broker_connect`: reuse saved access with no arguments (never enrolls), or activate this session using an explicitly supplied private connection JSON file.
@@ -265,10 +265,9 @@ resend, cancel, close, or acknowledge any message automatically. See the
 
 ## Explicit reauthorization
 
-Use **/psst:reauthorize** to request replacement installation authorization:
-command → reuse/obtain confirmation of the configured HTTPS broker → new public request ID
-→ administrator approves that ID at `/admin` → native attachment and selection.
-`/psst:connect` reconnects saved access; it does not request replacement.
+Use **`/psst:reauthorize https://broker.example`** to request replacement installation authorization at the explicitly supplied HTTPS broker endpoint. The endpoint is required even when `broker_url` is configured. Missing/malformed input returns usage at the first skill gate without a follow-up question or enrollment; a different configured origin is rejected before setup mutation. This prompt-based skill does not claim pre-model validation.
+
+Workflow: command with endpoint → endpoint/configured-target validation → reuse/obtain target confirmation → new public request ID → administrator approves that ID at `/admin` → native attachment and selection. `/psst:connect` reconnects saved access; it does not request replacement.
 
 Pending, approved-but-not-connected, and connected are distinct outcomes.
 Existing working access and old journals/unread messages are retained until the

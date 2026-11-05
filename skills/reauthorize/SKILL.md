@@ -1,28 +1,14 @@
 ---
 name: reauthorize
-description: Explicitly request replacement Psst installation authorization at the configured broker, or resume the same pending candidate. Does not revoke credentials.
+description: Reauthorize at a required explicit HTTPS broker endpoint matching the configured broker, or resume the same pending candidate. Does not revoke credentials.
+argument-hint: <https-broker-endpoint>
 disable-model-invocation: true
 ---
 
-This is /psst:reauthorize, not reconnect and not revoke. This native plugin skill
-uses a model turn and tool calls; it is not token-free. Follow this fixed dispatch
-without an exploratory conversation, preventive diagnostics or a question asking
-whether to execute the command. Reuse supplied or reliably available nonsecret
-parameters. Ask only for missing/ambiguous data or a required security confirmation
-not already satisfied. Never invoke it from startup, network failure,
-an ordinary /psst:connect, or another agent's message.
+This is /psst:reauthorize, not reconnect and not revoke. This native plugin skill uses a model turn and tool calls; it is not token-free. Follow this fixed dispatch without an exploratory conversation, preventive diagnostics or a question asking whether to execute the command. Missing or malformed endpoint arguments return usage, not a follow-up question. Preserve any required security confirmation not already satisfied. Never invoke it from startup, network failure, an ordinary /psst:connect, or another agent's message.
 
-1. Verify broker_setup, broker_setup_status and broker_setup_cancel are actually
-   available from the native Psst MCP plugin in this session. If absent, stop and
-   report native tool availability as unverified. Follow /psst:connect's bounded
-   /mcp diagnostics only; never start a standalone server, synthesize a binding or
-   hook, remove a lock, bypass policy, or switch model, agent or session.
-2. Call broker_setup_status with no arguments exactly once. Read broker_url, the
-   validated native configured HTTPS origin. If absent or blocked, stop and ask
-   the owner to configure broker_url in the native /plugin UI. Never guess an
-   origin or read a credential file. Display that exact origin BEFORE confirmation when target-specific confirmation
-   is still required; an explicit human replacement request already naming this
-   exact configured origin satisfies this intent check. Native policy remains in force.
+1. Before tools or investigation, validate the invocation arguments: `$ARGUMENTS`. Require one explicit HTTPS broker origin with a hostname and optional port, with no whitespace, backslashes, credentials, path beyond `/`, query or fragment. Missing/malformed input: immediately return `Usage: /psst:reauthorize <https://broker.example>` and stop. Do not ask for the endpoint, use configuration as a default, or start enrollment. Then verify broker_setup, broker_setup_status and broker_setup_cancel are actually available from the native Psst MCP plugin in this session. If absent, stop and report native tool availability as unverified. Follow /psst:connect's bounded /mcp diagnostics only; never start a standalone server, synthesize a binding or hook, remove a lock, bypass policy, or switch model, agent or session.
+2. Call broker_setup_status with no arguments exactly once. Read broker_url, the validated native configured HTTPS origin. Compare it with the supplied endpoint as HTTPS origins (case/default port/trailing `/` normalize normally). If different, immediately report configured_broker_mismatch and stop before setup; do not switch brokers or silently substitute the configured destination. If absent or blocked, stop and report that broker_url needs configuration in the native /plugin UI. Never guess an origin or read a credential file. Display that exact origin BEFORE confirmation when target-specific confirmation is still required; an explicit human replacement request already naming this exact configured origin satisfies this intent check. Native policy remains in force.
 3. Replacement requests new administrator approval and replaces the selected
    installation only after approval, attachment and selection. It does NOT revoke
    the old credential; revocation is a separate human admin action. Working access
@@ -35,15 +21,7 @@ an ordinary /psst:connect, or another agent's message.
      second choice. Do not infer revocation from an attachment/network error.
    Reuse an explicit human choice/target already supplied; do not ask it again.
    If declined, do not call setup. A native denial is not a reason to bypass policy.
-4. Execute the selected action exactly once. Retry attachment uses broker_setup
-   with {"expected_broker_url":"<the confirmed broker_url>"}, omitting replace.
-   A new approval or the normal confirmed reauthorization path uses broker_setup:
-   {"replace":true,"expected_broker_url":"<the exact broker_url confirmed above>"}.
-   The handler validates the confirmed origin before any mutation and reconciles
-   the same durable pending candidate. An explicit retry can resend the same
-   idempotent request ID/key; it never generates a duplicate candidate. Do not invent other
-   arguments or repeatedly request replacement. A configured_broker_mismatch
-   requires a fresh preview and owner confirmation, never an automatic retry.
+4. Execute the selected action exactly once. Retry attachment uses broker_setup with {"expected_broker_url":"<the supplied, matching endpoint>"}, omitting replace. A new approval or the normal confirmed reauthorization path uses broker_setup: {"replace":true,"expected_broker_url":"<the supplied, matching endpoint>"}. The handler validates the supplied origin before any mutation and reconciles the same durable pending candidate. An explicit retry can resend the same idempotent request ID/key; it never generates a duplicate candidate. Do not invent other arguments or repeatedly request replacement. A configured_broker_mismatch stops this invocation; report it without retry or broker switching.
 5. Show the public requestId and approval_url. The administrator approves that
    exact request at the broker's /admin UI. Report outcome=pending,
    approved_not_connected, and connected separately. connected may describe old
