@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { PassThrough, Writable } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
 import { serveStdio, TOOL_DEFINITIONS } from '../src/cooperative-stdio.mjs';
-import { DIRECT_COMMAND_INSTRUCTIONS, COLLABORATION_INSTRUCTIONS } from '../src/interaction-instructions.mjs';
+import { DIRECT_COMMAND_INSTRUCTIONS, NATIVE_RECOVERY_INSTRUCTIONS, COLLABORATION_INSTRUCTIONS } from '../src/interaction-instructions.mjs';
 const ids=['broker_sent_history','broker_message_content','broker_resend','broker_cancel'];
 function rpc(tools, options = {}){
  const input=new PassThrough(),responses=[];let text='';
@@ -32,6 +32,7 @@ test('agent instructions separate completed read ACK from unavailable native tra
  const f=rpc({broker_identity:async()=>({}),broker_send:async()=>({})});t.after(()=>f.server.close());
  const init=await f.ready();
  assert(init.result.instructions.includes(DIRECT_COMMAND_INSTRUCTIONS));
+ assert(init.result.instructions.includes(NATIVE_RECOVERY_INSTRUCTIONS));
  assert(init.result.instructions.includes(COLLABORATION_INSTRUCTIONS));
  const catalog=await f.call('tools/list');
  assert(catalog.result.tools.find(x=>x.name==='broker_send').description.includes(COLLABORATION_INSTRUCTIONS));
@@ -82,6 +83,31 @@ test('explicit command dispatch preserves arguments and native denial never reac
  assert.deepEqual(calls,[args,{}]);
  const denied=await f.call('tools/call',{name:'broker_connect',arguments:{connection_file:'/denied'}});
  assert(denied.error || denied.result?.isError); assert.equal(calls.length,2);
+});
+
+test('ordinary MCP commands report missing capability, invalid input and actual failure without fallback work', async t => {
+ const calls=[];
+ const tools={
+  broker_connect:async args=>{calls.push(['connect',args]);return {error:{code:'connection_failed',retryable:false,effect:'not_applied'}};},
+  broker_disconnect:async args=>{calls.push(['disconnect',args]);return {connected:false,pending_retained:true};},
+  broker_setup:async()=>{assert.fail('ordinary command failure must not enroll');},
+  broker_identity:async()=>{assert.fail('no preventive identity checks');},
+  broker_list_clients:async()=>{assert.fail('no preventive discovery');},
+ };
+ const f=rpc(tools);t.after(()=>f.server.close());await f.ready();
+ assert.equal((await f.call('tools/call',{name:'broker_connect',arguments:{connection_file:42}})).error.code,-32602);
+ assert.deepEqual(calls,[],'invalid input cannot dispatch');
+ const failed=await f.call('tools/call',{name:'broker_connect',arguments:{}});
+ assert.equal(failed.result.isError,true);
+ assert.equal(JSON.parse(failed.result.content[0].text).error.code,'connection_failed');
+ const disconnected=await f.call('tools/call',{name:'broker_disconnect',arguments:{}});
+ assert.equal(disconnected.result.isError,false);
+ assert.deepEqual(JSON.parse(disconnected.result.content[0].text),{connected:false,pending_retained:true});
+ assert.deepEqual(calls,[['connect',{}],['disconnect',{}]],'one dispatch per explicit call, no automatic retry');
+ const missing=rpc({});t.after(()=>missing.server.close());await missing.ready();
+ assert.deepEqual((await missing.call('tools/list')).result.tools,[]);
+ assert.equal((await missing.call('tools/call',{name:'broker_connect',arguments:{}})).error.code,-32602);
+ assert.equal((await missing.call('tools/call',{name:'broker_disconnect',arguments:{}})).error.code,-32602);
 });
 
 test('collaboration send needs no extra grant, but peer claims cannot bypass native denial', async t => {

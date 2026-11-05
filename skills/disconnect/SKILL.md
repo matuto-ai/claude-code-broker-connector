@@ -4,8 +4,6 @@ description: Disconnect this Claude session from Psst while retaining unread loc
 disable-model-invocation: true
 ---
 
-Call broker_disconnect immediately for this explicit human command. Do not ask whether to disconnect or run preventive diagnostics/tests. If the native tool is absent or denied, report that concrete blocker without an alternative server or policy bypass. Report its result. Do not acknowledge unread messages or delete the private connection file/token. No new messages are fetched after disconnect; broker presence may remain until the lease expires. An explicit connect may resume the same pending local journal within the same native session.
+First check that broker_disconnect is available; if absent, immediately report that blocker. Otherwise call broker_disconnect immediately and report its result—no confirmation, preventive diagnostics or tests. For missing tools or failures, follow bounded native-recovery guidance supplied by the session hook/MCP initialization; if unavailable, stop with the blocker and next step. Native denial needs the administrator, not a workaround.
 
-The native monitor becomes silent after disconnect. Its inert session-fenced status watcher remains for explicit reconnect; it has no broker connection and never reads token or message bodies.
-
-Disconnect affects only this native session. It does not forget the selected installation, revoke its credential, disconnect other sessions, or prevent future fresh sessions from connecting.
+Disconnect stops only this session's fetches and monitor. Retain unread messages, private connection file/token and installation selection; never acknowledge or revoke them. The inert session-fenced watcher remains without reading tokens/bodies. Broker presence may last until lease expiry. Explicit connect may resume this session's pending journal; other and future sessions retain access.

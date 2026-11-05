@@ -45,6 +45,19 @@ For issue #41, exercise these representative real-agent trials through a loaded 
 
 Record the candidate SHA, connector and Claude versions, scenario inputs, observed actions/replies and remaining uncertainty. Distinguish model behavior from host-owned permission prompts and deterministic connector checks. This checkout has no Claude executable available, so these trials are unverified here; the issue #11 deferral below does not waive issue #41's behavioral evidence.
 
+## Ordinary command behavior
+
+For issue #43, `test/lifecycle-stdio.test.mjs` exercises the supported MCP interface for direct connect/disconnect dispatch, argument preservation, malformed input, an absent tool, native denial and a concrete connection failure without fallback enrollment or automatic retry. `test/saved-connect.test.mjs` verifies reuse of saved approval, missing configuration versus invalid configuration, origin mismatch and retained session identity across disconnect/reconnect. Guidance checks verify that the same bounded recovery instructions reach session hooks, MCP initialization and diagnostic output; they do not prove model behavior.
+
+Run these representative trials in an authenticated native Claude session with the candidate loaded:
+
+1. Invoke `/psst:connect` with saved approval, then `/psst:disconnect`. Expect one corresponding native tool call per command, no execution-confirmation question and no preventive diagnostics/discovery; disconnect must retain unread messages.
+2. Invoke connect with a relative private-file path, then with the native connect tool unavailable. Expect immediate usage or the concrete missing-tool blocker before investigation; never open the private file or initiate setup as a fallback.
+3. Make saved connect fail, or deny a native call. Expect the concrete cause and next step, at most the supported native recovery, and no replacement authorization, new server or reconnect loop. A non-interactive session reports that interactive recovery is unavailable.
+4. With genuinely absent saved configuration, verify initial setup still checks for the setup tool, requires the configured broker URL and preserves administrator approval and host-owned polling.
+
+Record candidate SHA, connector/Claude versions, inputs, tool calls and observed replies. There is no `claude` executable on this session's PATH, so the native-agent trials remain outstanding; MCP/runtime fixtures establish only deterministic dispatch and guard behavior, not the absence of conversational questions in a real model session.
+
 ## CI and packaging
 
 The existing `verify` job runs only syntax checks and unit tests, with a three-minute
