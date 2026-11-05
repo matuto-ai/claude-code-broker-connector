@@ -35,7 +35,7 @@ async function fixture(t){
  t.mock.method(https,'request',(url,options,callback)=>{
   let body='';return new Writable({write(chunk,encoding,done){body+=chunk;done();},final(done){
    const input=body?JSON.parse(body):null;requests.push({origin:url.origin,method:options.method,requestId:input?.request_id});
-   const response=Readable.from([JSON.stringify({request_id:input?.request_id??url.pathname.split('/').at(-1),state:'pending',request_expires_at:new Date(Date.now()+60000).toISOString()})]);
+   const response=Readable.from([Buffer.from(JSON.stringify({request_id:input?.request_id??url.pathname.split('/').at(-1),state:'pending',request_expires_at:new Date(Date.now()+60000).toISOString()}))]);
    response.statusCode=201;response.headers={};callback(response);done();
   }});
  });
