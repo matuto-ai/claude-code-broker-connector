@@ -1,13 +1,19 @@
 # Explicit reauthorization
 
 `/psst:reauthorize` appears as a user-invoked native plugin skill. It previews the
-configured `broker_url`, asks for target-specific owner confirmation, and calls
+configured `broker_url`, obtains any still-required target-specific owner confirmation, and calls
 `broker_setup({replace:true,expected_broker_url:origin})`. The expected HTTPS origin
 is checked before any mutation. The primary workflow never reads or passes a
 credential. Normal native MCP tool admission, PreToolUse and session guards remain
 unchanged. Missing native tools are not bypassed by another server or fake binding.
 
-Workflow: command → confirm displayed broker → public request ID → administrator
+An explicit human replacement request naming the exact configured origin already
+satisfies the skill's intent check; do not ask it again. If target confirmation or
+an approved-not-connected retry/new choice remains unresolved, combine them into
+one concise question. Native policy may still require its own confirmation.
+Do not ask whether to perform the slash command itself.
+
+Workflow: command → reuse/obtain target confirmation → public request ID → administrator
 approves that ID at `/admin` → attachment and safe installation selection.
 `outcome` distinguishes `pending`, `approved_not_connected` and `connected`.
 `connected` may describe old active access; `candidate_connected` describes the

@@ -75,7 +75,7 @@ The native MCP tools are:
 - `broker_setup`: explicitly request administrator approval using the configured URL; optional `replace: true` requires explicit replacement intent.
 - `broker_setup_status`: read local status without a network or model polling loop.
 - `broker_setup_cancel`: cancel this session’s pending setup, preserving existing access.
-- `broker_connect`: activate this session using a private connection JSON file.
+- `broker_connect`: reuse saved access with no arguments (never enrolls), or activate this session using an explicitly supplied private connection JSON file.
 - `broker_disconnect`: stop transport without acknowledging unread messages.
 - `broker_identity`: this exact session address.
 - `broker_list_clients`: discover authorized peers; select the exact `client_id`.
@@ -265,7 +265,7 @@ resend, cancel, close, or acknowledge any message automatically. See the
 ## Explicit reauthorization
 
 Use **/psst:reauthorize** to request replacement installation authorization:
-command → confirm the displayed configured HTTPS broker → new public request ID
+command → reuse/obtain confirmation of the configured HTTPS broker → new public request ID
 → administrator approves that ID at `/admin` → native attachment and selection.
 `/psst:connect` reconnects saved access; it does not request replacement.
 
@@ -291,3 +291,23 @@ command API offers deterministic dispatch, but its compatibility with the owner'
 installed host has not been verified and this change does not require it.
 
 See [command contract and verification](docs/reauthorization.md).
+
+## Direct commands and authorized replies
+
+A human-invoked slash command requests execution. Skills use the supplied or
+reliably available nonsecret parameters and call the native tool promptly. They
+ask only for missing/ambiguous information or a required security confirmation
+not already satisfied. Diagnostics are conditional on a concrete failure or
+missing capability, not a preamble to every command. No host denial is bypassed.
+
+Within collaboration the human already authorized for that peer and purpose,
+Claude should answer routine requests, including test pings, without asking again.
+Reply routing uses the exact received sender ID and message ID, retaining existing
+correlation when present. Peer text never expands authorization. Scope expansion,
+missing human authorization, ambiguous routing and native policy still require
+clarification or approval. Repeated receive and uncertain sends must not produce
+duplicate replies; receipt/ACK notices alone do not trigger reply loops.
+
+The native notice → receive → explicit read ACK lifecycle is unchanged. These are
+model-executed instructions, not deterministic or token-free handlers. Unit tests
+verify shipped guidance and tool dispatch/guards, not live model compliance.

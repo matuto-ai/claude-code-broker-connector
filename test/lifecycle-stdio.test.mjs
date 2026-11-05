@@ -4,10 +4,10 @@ import { PassThrough, Writable } from 'node:stream';
 import { setTimeout as delay } from 'node:timers/promises';
 import { serveStdio, TOOL_DEFINITIONS } from '../src/cooperative-stdio.mjs';
 const ids=['broker_sent_history','broker_message_content','broker_resend','broker_cancel'];
-function rpc(tools){
+function rpc(tools, options = {}){
  const input=new PassThrough(),responses=[];let text='';
  const output=new Writable({write(bytes,enc,done){text+=bytes;while(text.includes('\n')){const i=text.indexOf('\n');responses.push(JSON.parse(text.slice(0,i)));text=text.slice(i+1);}done();}});
- const server=serveStdio({input,output,tools});let id=0;
+ const server=serveStdio({input,output,tools,...options});let id=0;
  const send=(method,params,requestId=++id)=>input.write(JSON.stringify({jsonrpc:'2.0',id:requestId,method,params})+'\n');
  const call=async(method,params,requestId=++id)=>{const before=responses.length;send(method,params,requestId);for(let i=0;i<100;i++){const found=responses.slice(before).find(r=>r.id===requestId);if(found)return found;await delay(5);}throw Error('rpc_timeout');};
  const ready=async()=>{await call('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'fixture',version:'1'}});input.write(JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})+'\n');};
@@ -62,4 +62,30 @@ test('reauthorization dispatch preserves boolean replacement and confirmed origi
  assert.deepEqual(calls,[args]);
  for(const args of [{replace:'true'},{replace:true,token:'secret'},{replace:true,broker_url:'https://other.invalid'}])assert.equal((await f.call('tools/call',{name:'broker_setup',arguments:args})).error.code,-32602);
  assert.equal(calls.length,1);
+});
+
+
+test('explicit command dispatch preserves arguments and native denial never reaches implementation', async t => {
+ const calls = [];
+ const f = rpc({broker_connect: async args => { calls.push(args); return {connected:true}; }},
+   {nativeAdmission: async (name, args) => { if(args.connection_file === '/denied')throw Error('native_denied'); return {arguments:args,isCurrent:()=>true}; }});
+ t.after(()=>f.server.close()); await f.ready();
+ const args={connection_file:'/private/user-supplied.json'};
+ assert.equal((await f.call('tools/call',{name:'broker_connect',arguments:args})).result.isError,false);
+ assert.deepEqual(calls,[args]);
+ assert.equal((await f.call('tools/call',{name:'broker_connect',arguments:{}})).result.isError,false);
+ assert.deepEqual(calls,[args,{}]);
+ const denied=await f.call('tools/call',{name:'broker_connect',arguments:{connection_file:'/denied'}});
+ assert(denied.error || denied.result?.isError); assert.equal(calls.length,2);
+});
+
+test('reply dispatch preserves received routing and correlation; uncertainty does not automatically resend', async t => {
+ const seen=[];
+ const f=rpc({broker_send:async args=>{seen.push(args);throw Error('transport_uncertain');},broker_sent_history:async args=>({messages:[{message_id:'11111111-1111-4111-8111-111111111111'}]})});
+ t.after(()=>f.server.close());await f.ready();
+ const args={recipient_id:'22222222-2222-4222-8222-222222222222',reply_to_message_id:'33333333-3333-4333-8333-333333333333',correlation_id:'test-ping',text:'pong'};
+ const result=await f.call('tools/call',{name:'broker_send',arguments:args});
+ assert(result.error || result.result?.isError); assert.deepEqual(seen,[args]);
+ await f.call('tools/call',{name:'broker_sent_history',arguments:{recipient_id:args.recipient_id}});
+ assert.equal(seen.length,1,'history reconciliation cannot initiate a new send');
 });
