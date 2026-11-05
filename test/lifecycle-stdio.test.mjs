@@ -61,7 +61,7 @@ test('presence MCP tools validate exact explicit event ACK without caller cursor
  assert.deepEqual(seen,[{},{event_id:eventId}]);
 });
 
-test('reauthorization dispatch preserves boolean replacement and confirmed origin; rejects invented/credential arguments',async t=>{
+test('reauthorization dispatch preserves explicit replacement and endpoint; rejects invented/credential arguments',async t=>{
  const calls=[];const f=rpc({broker_setup:async args=>{calls.push(args);return {state:'pending',requestId:'public'};}});t.after(()=>f.server.close());await f.ready();
  const args={replace:true,expected_broker_url:'https://broker.invalid'};
  assert.equal((await f.call('tools/call',{name:'broker_setup',arguments:args})).result.isError,false);

@@ -4,26 +4,15 @@ Invoke `/psst:reauthorize https://broker.example` with the explicit HTTPS broker
 
 Missing or malformed input returns `Usage: /psst:reauthorize <https://broker.example>` at the first skill gate, before tool calls or investigation, without a follow-up question or enrollment. Then the skill checks native tool availability and reads the configured origin once. A different origin reports `configured_broker_mismatch` and stops; broker switching is not supported. Equivalent host case, default port and trailing `/` normalize to the same HTTPS origin.
 
-After the endpoint gate, the existing target-specific confirmation/attachment-choice flow remains in place. The skill calls `broker_setup({replace:true,expected_broker_url:endpoint})`, or omits `replace` for an explicit retry of approved attachment. The handler independently requires a valid endpoint for replacement and validates any supplied endpoint against the configured origin before changing setup intent, candidate or activation state. Initial setup with `broker_setup({})` and saved reconnect remain unchanged. The primary workflow never reads or passes a credential. Native MCP tool admission, PreToolUse and session guards remain unchanged; missing tools are not bypassed by another server or fake binding.
+The valid explicit human command supplies target and replacement intent. After validating the matching endpoint, call `broker_setup({replace:true,expected_broker_url:endpoint})` once without another agent-generated target/replacement confirmation. If the human explicitly requested retrying an approved attachment instead of replacement, omit `replace`; reuse that choice without a second question. The handler independently validates the supplied origin before changing setup intent, candidate or activation state. Initial setup with `broker_setup({})` and saved reconnect remain unchanged. The primary workflow never reads or passes a credential.
 
-An explicit human replacement request naming the exact configured origin already
-satisfies the skill's intent check; do not ask it again. If target confirmation or
-an approved-not-connected retry/new choice remains unresolved, combine them into
-one concise question. Native policy may still require its own confirmation.
-Do not ask whether to perform the slash command itself.
+Native MCP admission, PreToolUse, session guards and host-owned permission prompts remain authoritative. The command does not grant administrator approval at the broker or bypass a host denial. Missing tools do not permit another server, fake binding or model-supplied confirmation flag.
 
-Workflow: command with endpoint → validate endpoint and configured target → reuse/obtain target confirmation → public request ID → administrator
-approves that ID at `/admin` → attachment and safe installation selection.
-`outcome` distinguishes `pending`, `approved_not_connected` and `connected`.
-`connected` may describe old active access; `candidate_connected` describes the
-replacement. Working old access is retained while possible; revoked access is not
-claimed to work. Replacement does not revoke old credentials, and prior revocation
-is not required. Only the human administrator performs revocation in Psst admin.
+Workflow: human command with endpoint → endpoint/configured-target validation → one setup call → public request ID → broker administrator approves that ID at `/admin` → attachment and safe installation selection.
 
-Repeating the command resumes pending candidates after cancellation, restart or
-uncertain POST responses. For approved-but-not-connected candidates, the owner chooses retry attachment
-(without replace) or a new approval (replace:true), including when that candidate
-was revoked before attachment. Errors alone never prove revocation.
+`outcome` distinguishes `pending`, `approved_not_connected` and `connected`. `connected` may describe old active access; `candidate_connected` describes the replacement. Working old access is retained while possible; revoked access is not claimed to work. Replacement does not revoke old credentials, and prior revocation is not required. Only the human administrator performs revocation in Psst admin.
+
+Repeating the command resumes pending candidates after cancellation, restart or uncertain POST responses. A fresh valid reauthorization command requests replacement, including after an approved-but-not-connected result; an explicit human request to retry that approved attachment uses the same candidate without `replace`. An attachment/network error alone initiates neither path and never proves revocation.
 An explicit retry may resend POST with the same durable request ID/key when
 the initial POST never reached the broker; automatic resume/polling stays GET-only.
 `broker_setup_cancel` stops this session's intent only; the durable candidate stays.
@@ -39,7 +28,7 @@ A skill is a fixed instruction prompt executed by Claude: invocation and tool
 calls consume a model turn. `disable-model-invocation: true` makes it user-only,
 not token-free. The owner accepted this trade-off for command discoverability.
 
-The supported [skill frontmatter](https://code.claude.com/docs/en/skills#frontmatter-reference) provides `argument-hint` for autocomplete, and [argument substitution](https://code.claude.com/docs/en/skills#pass-arguments-to-skills) supplies the invocation input. Neither is an executable argument validator. This plugin uses a prompt-based first gate, not a claimed pre-model command rejection. The MCP handler provides deterministic validation before replacement mutation, but cannot prove that the model obtained its endpoint from the human's invocation. A native-host trial is still needed for that behavior.
+The supported [skill frontmatter](https://code.claude.com/docs/en/skills#frontmatter-reference) provides `argument-hint` for autocomplete, and [argument substitution](https://code.claude.com/docs/en/skills#pass-arguments-to-skills) supplies the invocation input. Neither is an executable argument validator. This plugin uses a prompt-based first gate, not a claimed pre-model command rejection. The MCP handler validates endpoints deterministically before replacement mutation. Native permits prove the main session/tool call, not that an endpoint originated in a human command; no model-facing `confirmed` or `human_invoked` argument establishes that provenance. User-only skill invocation and its instructions remain the command-origin boundary; representative native-host/agent trials are still required to verify compliance.
 
 Claude's newer [Mods API](https://code.claude.com/docs/en/plugins/mods/api#add-a-command)
 provides native `command.run` and `tool.call` dispatch. Its installed-host
@@ -49,11 +38,9 @@ require new host configuration or claim deterministic/token-free dispatch.
 
 ## Verification boundary and command inventory
 
-Tests exercise MCP schema/dispatch with fixed arguments and native admission,
-skill packaging/instructions, endpoint validation, local approval planning, pending retries,
-cancellation, failed attachment, and selection races. These lightweight tests do
-not represent a live Claude session or live broker authentication. No credentials
-or admin operations are changed by verification.
+Tests exercise the real MCP setup handler behind native one-use permit admission, missing/forged native provenance and invented confirmation arguments, endpoint validation, pending-candidate reconciliation/cancellation, approval/attachment and old unread-data retention. Existing approval-session, attachment and native-lifetime fixtures cover uncertain POST recovery, failed attachment rollback, selection contention, cancellation and session races. Guidance checks verify the removed conversational branch, not live model compliance. These fixtures use disposable local state and simulated approval responses, not live credentials or admin operations.
+
+For #44, record the candidate SHA, connector/Claude versions, command and tool trace from an authenticated native Claude session: valid matching command proceeds without another agent-generated question; invalid/missing/mismatched commands and host denial cannot replace access; pending repeat/cancellation retains the same request; approved attachment and failed-attachment recovery preserve selection and unread data. Distinguish administrator/host-owned prompts from conversational confirmation. No `claude` executable is on this session's PATH, so this behavioral evidence remains outstanding; unit wording and MCP fixtures do not substitute for it.
 
 - `/psst:connect`: first setup or reconnect saved authorization; no automatic replacement.
 - `/psst:disconnect`: disconnect this session, without revocation.
