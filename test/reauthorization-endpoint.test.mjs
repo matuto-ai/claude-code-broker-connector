@@ -69,8 +69,8 @@ test('real MCP replacement rejects missing, malformed and mismatched endpoints b
   assert.deepEqual(result,{error:{code:'invalid_reauthorization_endpoint',retryable:false,effect:'not_applied'},usage:REAUTHORIZE_USAGE});
   assert.deepEqual(snapshot(f.root),before);
  }
- for(const replace of [false,true]){
-  const result=await f.call('broker_setup',{replace,expected_broker_url:'https://other.invalid'});
+ for(const replace of [false,true])for(const expected_broker_url of ['https://other.invalid','https://broker.invalid:8443']){
+  const result=await f.call('broker_setup',{replace,expected_broker_url});
   assert.equal(result.error.code,'configured_broker_mismatch');assert.equal(result.error.effect,'not_applied');
   assert.deepEqual(snapshot(f.root),before);
  }
