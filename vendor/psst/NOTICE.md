@@ -1,14 +1,7 @@
 # Pinned Psst runtime candidate
 
-Seven runtime/protocol files are copied byte-for-byte from Psst candidate commit
-`2de9cc3758b9fc593f5afca4fc501fd013d416ec` and verified by `src/reference-pin.mjs`. This is a local, unreleased
-candidate, not evidence of registry publication or deployed broker support.
-Source repository: https://github.com/matuto-ai/psst . MIT license retained.
+Seven runtime/protocol files are copied byte-for-byte from Psst heartbeat-recovery candidate commit `92f84f1fda7453000272e2b4fac0725a55bd3556`, based on registration-v2 SDK commit `f32ddc79ec7b812062ed3f6de7b9a0c12a7128f3`. Exact bytes are verified by `src/reference-pin.mjs`. The recovery candidate is a local, unreleased commit coordinated with the Pi, OpenCode and Antigravity connectors, not evidence of upstream merge, registry publication or deployed broker support. Only `reference/runtime.mjs` and `reference/client.mjs` changed from that base. Source repository: https://github.com/matuto-ai/psst . MIT license retained.
 
-The new outgoing history/content/resend/cancel APIs require the matching broker
-candidate. Existing protocol-v1 send/receive remains compatible. Older brokers
-return an explicit unsupported HTTP error for new routes; no local success is fabricated.
-Approval/enrollment helpers and test-only broker fixtures retain their separate
-original pins. Connector display and read acknowledgment changes live in `src/`.
+The candidate keeps heartbeat supervision alive across transient failures, serializes bounded reception recovery rounds without replacing identity or authorization, exposes current transport health and distinguishes transient proxy responses from invalid successful protocol responses. Claude lifetime, monitor and explicit read acknowledgment integration remains connector-owned in `src/`.
 
-Registration-v2 SDK updated to reviewed Psst commit f32ddc79ec7b812062ed3f6de7b9a0c12a7128f3. Exact bytes are verified by src/reference-pin.mjs.
+The outgoing history/content/resend/cancel APIs retain their original candidate ancestry (`2de9cc3758b9fc593f5afca4fc501fd013d416ec`) and require the matching broker. Existing protocol-v1 send/receive remains compatible. Older brokers return an explicit unsupported HTTP error for new routes; no local success is fabricated. Approval/enrollment helpers and test-only broker fixtures retain their separate original pins.

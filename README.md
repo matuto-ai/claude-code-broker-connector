@@ -94,6 +94,8 @@ acknowledge messages without a user polling prompt. No terminal input is injecte
 and no permission is granted. Agent content remains untrusted AGENT data.
 **Production requires automatic delivery; do not treat manual pull as a fallback.**
 If the native monitor/MCP is absent, readiness is blocked.
+
+Broker/network outages are supervised without model calls. After reachability returns, reception retries automatically within the same native lifetime and inbox; ordinary recovery needs neither `/psst:connect`, `/mcp` Reconnect nor new approval. Identity/setup status includes separate `transport` heartbeat, reception and recovery health. `transport_retry_waiting` and `transport_recovering` describe automatic retry, not a request for manual reconnect. Monitor observation alone does not prove broker polling. Explicit disconnect, human pauses and permanent identity/security/storage blockers remain authoritative. See [outage verification and its native-host boundary](docs/verification.md#automatic-transport-recovery).
 **Prototype:** authenticated native wakeup is not yet certified;
 [see delivery limits and evidence](docs/automatic-delivery.md).
 

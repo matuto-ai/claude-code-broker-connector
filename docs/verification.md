@@ -23,13 +23,26 @@ The suite exercises connector-owned decisions and failure handling:
 
 Tests call modules directly with injected collaborators or in-memory streams.
 Temporary private files and SQLite journals cover this connector's own persistence;
-they do not start a broker, network listener or child process. Tests for the shared
-Psst server and protocol belong in Psst, not in this repository.
+they do not start a broker or child process. The shared-client gateway regression starts a disposable loopback HTTP listener to check actual response classification; it needs no external service. Tests for the shared Psst server and protocol belong in Psst, not in this repository.
 
 No Psst sibling checkout, Docker, official Claude binary, provider account,
-credentials or network access is required. The old integration, native-host,
+credentials or external network access is required. The old integration, native-host,
 container, package-install and end-to-end harnesses have been removed rather than
 hidden behind optional flags.
+
+## Automatic transport recovery
+
+Run the deterministic native-epoch and shared-runtime fault scenarios with no external broker, credentials or Claude executable:
+
+```sh
+node --test test/transport-recovery.test.mjs test/runtime-recovery.test.mjs test/delivery-status.test.mjs
+```
+
+The fixture uses the production plugin epoch, runtime, client methods and durable inbox, injecting only broker request outcomes and time. It interrupts an in-flight mailbox poll, keeps the broker unreachable over multiple supervision checks, then returns a stale-lease response as a broker restart would. It verifies owned-session reconciliation before a successful heartbeat is possible, automatic receipt into the original inbox, preserved uncertain send/key, durable storage before delivery completion, no automatic read ACK, current cleared status and cancellation on explicit disconnect/native-session change. A receive-only interruption with successful heartbeats, healthy empty polls, explicit pause and strict protocol blocker are covered separately. The retained shared-candidate checks additionally exercise exhausting a three-attempt round and later recovery after cooldown, bounded outage diagnostics, overlapping stale-heartbeat/receive failures, final-epoch shutdown draining, permanent security/storage blockers, ordinary long polls and malformed responses. A loopback gateway test covers real HTTP JSON and non-JSON 502/503/504 classification while retaining strict malformed-success and authentication errors. Monitor/read-ACK tests retain their existing boundaries; no notice or heartbeat is treated as proof of model delivery.
+
+For native-host evidence, load the candidate in one authenticated interactive Claude session and record the candidate SHA, Claude version, native session ID and client ID. On a disposable test broker, interrupt its connection while a mailbox long poll is active, keep it unavailable across several heartbeat intervals, queue a message after it returns, and observe automatic receipt/notices without connect, MCP Reconnect, new approval or model-driven polling. Check that the IDs and monitor lifetime stay unchanged, the message remains unread until explicit receive/ACK, and identity/setup transport health returns to healthy. Repeat with a receive-path-only transient failure while heartbeats work, and with explicit disconnect to verify that fetching stays stopped. Use no production outage or credentials for this scenario.
+
+Automated fault injection establishes transport and durable-inbox behavior, not a real Claude wakeup or an authenticated native-host outage result. Those native-host trials remain unverified here. The original incident's stopping exception was not captured; this fix does not claim to identify it or conflate it with the broker's SQLite temporary-storage correction.
 
 ## Peer collaboration behavior
 
