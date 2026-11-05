@@ -2,11 +2,11 @@ import { readFileSync, lstatSync } from 'node:fs';
 import { join, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 // Shared Psst heartbeat-recovery candidate; publication boundary is in vendor/psst/NOTICE.md.
-export const REFERENCE_COMMIT = '7589697e253b2502448d5f7d734c85c775444cb3';
+export const REFERENCE_COMMIT = '92f84f1fda7453000272e2b4fac0725a55bd3556';
 const HASHES = Object.freeze({
   "reference/inbox.mjs": "fbf0fa6096996cb9bc3f928e55f3eca496420880a03460e993dda3417b32ad88",
   "reference/client.mjs": "bb965e7d0bb697b2548a461e956ba68aa72e3c8ba8ed329f9989a5001079b0da",
-  "reference/runtime.mjs": "8995f7f130482e6b28298662f9dc4c5ddbd185143b7557f5e8004f3d09a3dbbb",
+  "reference/runtime.mjs": "f48e62feadc17993787906ce58e064c36bce66bfb0db8ffaa519f52bedbe76c9",
   "reference/tools.mjs": "e1836d5c33ed80a9e15c1ca9d07888c9db3caf40aeb2a115c813f74a45077c6e",
   "reference/mcp-stdio.mjs": "88c61c995f9285ef7e22c401d7f0cf50fefc7dd6c76ae79c6bcc94097a33a5c3",
   "reference/errors.mjs": "85b0d0736c5a439f7c66697c3b1ce6cee998cda744dd3169c856ebf2b82bd2a7",

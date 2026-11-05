@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
-// Psst candidate 7589697 regression checks, with only vendor import paths adapted.
+// Psst candidate 92f84f1 regression checks, with only vendor import paths adapted.
 import { Inbox, newSessionIdentity } from '../vendor/psst/reference/inbox.mjs';
 import { AdapterRuntime } from '../vendor/psst/reference/runtime.mjs';
 import { BrokerClient, BrokerError } from '../vendor/psst/reference/client.mjs';
@@ -109,6 +109,13 @@ test('manual pauses, permanent protocol/security/storage errors and stopped life
     assert.equal(g.calls.filter(x => x === 'claim').length, 1); assert.equal(g.calls.includes('reconnect'), false);
   }
   await f.runtime.stop(); const count = f.calls.length; await f.time.advance(600000); assert.equal(f.calls.length, count);
+});
+
+test('sender-only lease recovery does not wait forever for a disabled mailbox poll', async t => {
+  const f = await fixture(t); f.runtime.receiveEnabled = false; f.client.stale = true;
+  await f.time.advance(60000);
+  assert.equal(f.runtime.status().reception, 'disabled'); assert.equal(f.runtime.status().recovery, 'idle');
+  assert.equal(f.runtime.status().error_code, null); assert.equal(f.client.attachment.lease_epoch, 2);
 });
 
 test('a successful mailbox response is not allowed to disguise a malformed value as an empty poll', async t => {
