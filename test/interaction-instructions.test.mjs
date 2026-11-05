@@ -41,9 +41,14 @@ test('ordinary skills gate missing capabilities before dispatch and share condit
  assert.match(recovery,/Only when tools are missing or an operation has concretely failed/);
 });
 
-test('reauthorize combines unresolved target and candidate choice without dropping native security',()=>{
+test('reauthorize executes matching explicit intent without another confirmation and preserves native approval',()=>{
  const skill=read('skills/reauthorize/SKILL.md');
- for(const pattern of [/ONE concise question/,/already naming this/,/Reuse an explicit human choice\/target already supplied/,/Native policy remains in force/,/configured_broker_mismatch/,/expected_broker_url/,/not token-free/,/If declined, do not call setup/])assert.match(skill,pattern);
+ for(const pattern of [/supplies target and replacement intent/,/Call broker_setup exactly once/,/Native policy remains in force/,/configured_broker_mismatch/,/expected_broker_url/,/not token-free/,/broker administrator approves that exact request/])assert.match(skill,pattern);
+ const setup=TOOL_DEFINITIONS.find(x=>x.name==='broker_setup');
+ assert.match(setup.description,/without another conversational confirmation/);
+ assert.match(setup.description,/host-owned permission enforcement and broker-administrator approval/);
+ assert.deepEqual(Object.keys(setup.inputSchema.properties),['replace','expected_broker_url']);
+ assert.doesNotMatch(setup.description,/preserve any required target-specific security confirmation/);
  assert.match(read('skills/disconnect/SKILL.md'),/call broker_disconnect immediately/);
 });
 

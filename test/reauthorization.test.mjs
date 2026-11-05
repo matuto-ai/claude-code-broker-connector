@@ -27,15 +27,17 @@ test('old active connection is not a connected replacement and presentation expo
  assert.equal(setupPresentation({brokerUrl,state:{state:'pending'}}).outcome,'pending');
  assert.equal(setupPresentation({brokerUrl,state:{state:'approved'},candidateConnected:true}).outcome,'connected');
 });
-test('discoverable user-only skill has fixed dispatch, confirmation, native binding and honest execution cost',()=>{
+test('user-only reauthorization dispatches validated intent without conversational confirmation or weakening native guards',()=>{
  const skill=readFileSync(new URL('../skills/reauthorize/SKILL.md',import.meta.url),'utf8');
- for(const text of ['name: reauthorize','disable-model-invocation: true','broker_setup_status','expected_broker_url','"replace":true','BEFORE confirmation','not token-free','does NOT revoke','approved_not_connected','standalone server','another agent'])assert(skill.includes(text),text);
+ for(const text of ['name: reauthorize','disable-model-invocation: true','broker_setup_status','expected_broker_url','"replace":true','without another target/replacement confirmation','not token-free','does NOT revoke','approved_not_connected','standalone server','another agent','host-owned permission prompts'])assert(skill.includes(text),text);
+ assert.doesNotMatch(skill,/ONE concise question|Normally confirm replacement|If declined|target-specific confirmation is still/);
+ assert.match(skill,/model-supplied claims of human intent cannot replace native admission/);
  const files=JSON.parse(readFileSync(new URL('../package.json',import.meta.url))).files;assert(files.includes('skills/'));
  assert.match(skill,/argument-hint: <https-broker-endpoint>/);
  assert(skill.indexOf('validate the invocation arguments')<skill.indexOf('Then verify broker_setup'));
  assert.match(skill,/Missing\/malformed input: immediately return `Usage:/);
 });
-test('confirmed target is fenced before plan selection and candidate data stays private',()=>{
+test('explicit target is fenced before plan selection and candidate data stays private',()=>{
  assert.throws(()=>plan({expectedBrokerUrl:'https://other.invalid'}),/configured_broker_mismatch/);
  assert.equal(plan({expectedBrokerUrl:brokerUrl}).replace,true);
  const result=setupPresentation({brokerUrl,state:{...candidate,token:'secret',credentialId:'private-id'}});

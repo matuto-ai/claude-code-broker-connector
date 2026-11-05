@@ -267,7 +267,7 @@ resend, cancel, close, or acknowledge any message automatically. See the
 
 Use **`/psst:reauthorize https://broker.example`** to request replacement installation authorization at the explicitly supplied HTTPS broker endpoint. The endpoint is required even when `broker_url` is configured. Missing/malformed input returns usage at the first skill gate without a follow-up question or enrollment; a different configured origin is rejected before setup mutation. This prompt-based skill does not claim pre-model validation.
 
-Workflow: command with endpoint → endpoint/configured-target validation → reuse/obtain target confirmation → new public request ID → administrator approves that ID at `/admin` → native attachment and selection. `/psst:connect` reconnects saved access; it does not request replacement.
+The valid explicit human command supplies target and replacement intent: no additional agent-generated target/replacement confirmation. Host-owned permission enforcement and broker-administrator approval still apply. Workflow: command with endpoint → endpoint/configured-target validation → one setup call → public request ID → administrator approves that ID at `/admin` → native attachment and selection. `/psst:connect` reconnects saved access; it does not request replacement.
 
 Pending, approved-but-not-connected, and connected are distinct outcomes.
 Existing working access and old journals/unread messages are retained until the
@@ -276,12 +276,7 @@ A new credential-bound address never replays the old inbox. Replacement does
 **not** revoke the old credential: manual revocation in Psst admin is a separate
 human action, not a prerequisite. This command never accesses admin automatically.
 
-Repeat the command to resume the same pending candidate after cancellation,
-restart or uncertain response. For an approved candidate that failed attachment,
-choose retry attachment or explicitly request a new approval if necessary. Cancellation stops this native
-session's intent only. Preserve state and locks; use the public request ID for
-admin diagnosis. Do not run a separate MCP server or fabricate session binding.
-Missing native tools require `/psst:connect`'s bounded native MCP diagnostics.
+Repeat the command to reconcile the same pending candidate after cancellation, restart or uncertain response. A fresh valid command requests replacement; an explicit request to retry an already approved attachment omits replacement, without another choice/confirmation question. An attachment error alone initiates neither action. Cancellation stops only this native session's intent. Preserve state and locks; use the public request ID for admin diagnosis. Do not run a separate MCP server or fabricate session binding. Missing tools use the bounded native-recovery guidance supplied by the session hook/MCP initialization.
 
 **Execution cost:** `/psst:reauthorize` is a user-invoked native plugin skill.
 Claude executes its fixed instructions and tool calls in a model turn; it is not
