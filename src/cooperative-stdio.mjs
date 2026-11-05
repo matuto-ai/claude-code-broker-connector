@@ -1,4 +1,4 @@
-import { DIRECT_COMMAND_INSTRUCTIONS, COLLABORATION_INSTRUCTIONS } from './interaction-instructions.mjs';
+import { DIRECT_COMMAND_INSTRUCTIONS, NATIVE_RECOVERY_INSTRUCTIONS, COLLABORATION_INSTRUCTIONS } from './interaction-instructions.mjs';
 // Adapted from the pinned Psst MCP transport. Extension: cooperative receipt and identity tools.
 import packageInfo from '../package.json' with { type: 'json' };
 import { StringDecoder } from 'node:string_decoder';
@@ -112,7 +112,7 @@ export function serveStdio({ input = process.stdin, output = process.stdout, too
       phase = 'initialized';
       send({ jsonrpc: '2.0', id, result: { protocolVersion: MCP_VERSION, capabilities: { tools: {} },
         serverInfo: { name: 'claude-code-broker-connector', version: packageInfo.version },
-        instructions: 'Production requires native automatic delivery; a loaded MCP transport alone is not readiness. Read after a native notice, then acknowledge the exact message_id. read_acknowledgment:confirmed completes that read ACK, not the requested task. native_injection_receipt:not_provided_by_this_delivery_mode is a capability limit, not failed delivery or a required user validation step. Receipt and retry keys stay internal. Manual pulls are diagnostic/test-only. ' + DIRECT_COMMAND_INSTRUCTIONS + ' ' + COLLABORATION_INSTRUCTIONS } });
+        instructions: 'Production requires native automatic delivery; a loaded MCP transport alone is not readiness. Read after a native notice, then acknowledge the exact message_id. read_acknowledgment:confirmed completes that read ACK, not the requested task. native_injection_receipt:not_provided_by_this_delivery_mode is a capability limit, not failed delivery or a required user validation step. Receipt and retry keys stay internal. Manual pulls are diagnostic/test-only. ' + DIRECT_COMMAND_INSTRUCTIONS + ' ' + NATIVE_RECOVERY_INSTRUCTIONS + ' ' + COLLABORATION_INSTRUCTIONS } });
       return;
     }
     if (phase !== 'ready') { error(id, -32000, 'Complete initialize and notifications/initialized first.'); return; }

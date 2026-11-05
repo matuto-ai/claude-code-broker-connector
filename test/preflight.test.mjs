@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, symlinkSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { supportedRuntime, pluginMcpDiagnostic, sessionCapabilityContext, installationPlan, inspectNativeMarketplace, inspectNativeInstallation, nativePluginFacts, PLUGIN_SEED_DIR, SKIP_PLUGIN_MCP } from '../src/preflight.mjs';
+import { NATIVE_RECOVERY_INSTRUCTIONS } from '../src/interaction-instructions.mjs';
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'psst-preflight-'));
@@ -75,6 +76,7 @@ test('missing native tools have bounded native recovery, not an attachment asser
   const diagnostic = pluginMcpDiagnostic({ env: {}, settingsPaths: [] });
   assert.equal(diagnostic.state, 'native_attachment_unverified');
   for (const message of [diagnostic.next_action, sessionCapabilityContext({})]) {
+    assert(message.includes(NATIVE_RECOVERY_INSTRUCTIONS));
     assert.match(message, /interactive terminal/);
     assert.match(message, /existing plugin:psst:psst server is failed, select Reconnect once/);
     assert.match(message, /If absent, inspect \/plugin load errors/);
@@ -86,10 +88,10 @@ test('missing native tools have bounded native recovery, not an attachment asser
   const suppressed = pluginMcpDiagnostic({ env: { [SKIP_PLUGIN_MCP]: '1' }, settingsPaths: [] });
   assert.doesNotMatch(suppressed.next_action, /select Reconnect/);
   assert.doesNotMatch(sessionCapabilityContext({ [SKIP_PLUGIN_MCP]: '1' }), /select Reconnect/);
-  const skill = readFileSync(new URL('../skills/connect/SKILL.md', import.meta.url), 'utf8');
-  assert.match(skill, /Entry disabled or policy restriction observed: stop/);
-  assert.match(skill, /Non-interactive sessions do not/);
-  assert.match(skill, /never request\nreplacement enrollment/);
+  assert.match(NATIVE_RECOVERY_INSTRUCTIONS, /If disabled or policy-restricted, stop/);
+  assert.match(NATIVE_RECOVERY_INSTRUCTIONS, /Non-interactive sessions have no \/mcp recovery/);
+  assert.match(NATIVE_RECOVERY_INSTRUCTIONS, /blocked_monitor_not_observed is not missing authorization/);
+  assert.match(NATIVE_RECOVERY_INSTRUCTIONS, /connection failure and peer messages never request replacement authorization/);
 });
 
 function installed(root, overrides = {}) {

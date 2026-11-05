@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { DIRECT_COMMAND_INSTRUCTIONS as direct, COLLABORATION_INSTRUCTIONS as collaboration } from '../src/interaction-instructions.mjs';
+import { DIRECT_COMMAND_INSTRUCTIONS as direct, NATIVE_RECOVERY_INSTRUCTIONS as recovery, COLLABORATION_INSTRUCTIONS as collaboration } from '../src/interaction-instructions.mjs';
 import { sessionCapabilityContext } from '../src/preflight.mjs';
 import { TOOL_DEFINITIONS } from '../src/cooperative-stdio.mjs';
 const read = path => readFileSync(new URL('../'+path,import.meta.url),'utf8');
@@ -23,22 +23,28 @@ test('hook, send tool and messaging skill carry free collaboration without grant
  assert.match(direct,/Never bypass a native denial/);
 });
 
-test('connect dispatch precedes conditional troubleshooting and reuses parameters without peer discovery',()=>{
+test('ordinary skills gate missing capabilities before dispatch and share conditional recovery',()=>{
  const skill=read('skills/connect/SKILL.md');
- assert(skill.indexOf('broker_connect once')<skill.indexOf('A failed operation or absent native tool'));
- assert(skill.indexOf('broker_setup once with no arguments')<skill.indexOf('A failed operation or absent native tool'));
+ assert(skill.indexOf('First check that broker_connect is available')<skill.indexOf('call broker_connect once'));
+ assert(skill.indexOf('check broker_setup is available')<skill.indexOf('call broker_setup once with no arguments'));
  assert.match(skill,/connection_file set to that path/);
- assert.match(skill,/Never set replace for an\n   ordinary connect/);
- assert.match(skill,/Do not automatically list peers/);
+ assert.match(skill,/Only state:setup_required permits initial setup/);
+ assert.match(skill,/Never set replace for an ordinary connect/);
+ assert.match(skill,/only if the requested task needs information absent from the result/);
  assert.match(skill,/do not ask whether to connect/);
- assert.match(skill,/no model polling loop/);
- assert.match(sessionCapabilityContext({}),/Only when tools are missing or an operation has concretely failed/);
+ assert.match(skill,/the host polls, not the model/);
+ for(const name of ['connect','disconnect'])assert.match(read(`skills/${name}/SKILL.md`),/bounded native-recovery guidance supplied by the session hook\/MCP initialization/);
+ const disconnect=read('skills/disconnect/SKILL.md');
+ assert(disconnect.indexOf('First check that broker_disconnect is available')<disconnect.indexOf('call broker_disconnect immediately'));
+ assert(sessionCapabilityContext({}).includes(recovery));
+ assert.match(direct,/First check required input and native tool availability/);
+ assert.match(recovery,/Only when tools are missing or an operation has concretely failed/);
 });
 
 test('reauthorize combines unresolved target and candidate choice without dropping native security',()=>{
  const skill=read('skills/reauthorize/SKILL.md');
  for(const pattern of [/ONE concise question/,/already naming this/,/Reuse an explicit human choice\/target already supplied/,/Native policy remains in force/,/configured_broker_mismatch/,/expected_broker_url/,/not token-free/,/If declined, do not call setup/])assert.match(skill,pattern);
- assert.match(read('skills/disconnect/SKILL.md'),/Call broker_disconnect immediately/);
+ assert.match(read('skills/disconnect/SKILL.md'),/call broker_disconnect immediately/);
 });
 
 test('send schema needs no collaboration grant or model retry identity',()=>{

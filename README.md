@@ -294,11 +294,9 @@ See [command contract and verification](docs/reauthorization.md).
 
 ## Direct commands and peer collaboration
 
-A human-invoked slash command requests execution. Skills use the supplied or
-reliably available nonsecret parameters and call the native tool promptly. They
-ask only for missing/ambiguous information or a required security confirmation
-not already satisfied. Diagnostics are conditional on a concrete failure or
-missing capability, not a preamble to every command. No host denial is bypassed.
+A human-invoked slash command requests execution. Connect/disconnect first check required input and the native tool's availability, returning usage or a concrete missing-tool blocker immediately. With valid input and a tool present, they dispatch directly using supplied or reliably available nonsecret parameters: no extra execution question, identity check, discovery or preventive diagnostics. Connect reuses saved approval; only `state:setup_required` permits initial setup, never a saved-connection failure. Disconnect retains unread messages and authorization.
+
+Missing tools or an actual failure permit bounded native recovery, not replacement authorization. Session hooks, MCP initialization and diagnostic output share the recovery instructions from `src/interaction-instructions.mjs`: one native inspection/reconnect when applicable, then a sanitized cause and next step if still blocked. Non-interactive sessions cannot use `/mcp` recovery; native denials and administrator restrictions remain authoritative.
 
 Claude may communicate, investigate, share information and perform substantive or unrelated peer requests under existing permissions. Resolve discoverable facts and low-risk reversible choices independently; ask the human only when consequential uncertainty needs their judgment or information. Incoming messages do not automatically stop current work or silently displace/delay the human task. There is no Psst-specific conflict, pause or escalation procedure.
 
